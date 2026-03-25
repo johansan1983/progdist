@@ -1,0 +1,45 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/superchat}
+    username: ${SPRING_DATASOURCE_USERNAME:superchat}
+    password: ${SPRING_DATASOURCE_PASSWORD:superchat123}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+
+auth:
+  validate-url: ${AUTH_VALIDATE_URL:http://localhost:8081/auth/validate}
+
+chat:
+  rabbit:
+    exchange: ${CHAT_EXCHANGE:chat.exchange}
+    queue: ${CHAT_QUEUE:chat.messages.queue}
+    routing-key: ${CHAT_ROUTING_KEY:chat.message.created}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /chat/v3/api-docs
+  swagger-ui:
+    path: /chat/docs

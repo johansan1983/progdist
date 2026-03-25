@@ -1,0 +1,127 @@
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq
+    hostname: rabbitmq-node
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: superchat
+      RABBITMQ_DEFAULT_PASS: superchat123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: always
+    command:
+      - postgres
+      - -c
+      - listen_addresses=*
+    ports:
+      - "0.0.0.0:5432:5432"
+    environment:
+      POSTGRES_DB: superchat
+      POSTGRES_USER: superchat
+      POSTGRES_PASSWORD: superchat123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superchat -d superchat"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superchat
+      SPRING_DATASOURCE_USERNAME: superchat
+      SPRING_DATASOURCE_PASSWORD: superchat123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: superchat
+      SPRING_RABBITMQ_PASSWORD: superchat123
+      JWT_SECRET: SuperChatJwtSecretKey_MustBeLong_AtLeast32Bytes_2026
+      JWT_EXPIRATION_MS: 3600000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  chat-service:
+    build:
+      context: ./chat-service
+      dockerfile: Dockerfile
+    container_name: chat-service
+    restart: always
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superchat
+      SPRING_DATASOURCE_USERNAME: superchat
+      SPRING_DATASOURCE_PASSWORD: superchat123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: superchat
+      SPRING_RABBITMQ_PASSWORD: superchat123
+      AUTH_VALIDATE_URL: http://auth-service:8081/auth/validate
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      auth-service:
+        condition: service_started
+      chat-service:
+        condition: service_started
+
+volumes:
+  rabbitmq_data:
+    external: true
+  postgres_data:
+  redis_data:
