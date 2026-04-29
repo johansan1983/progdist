@@ -60,6 +60,14 @@ Prerequisitos:
 - Docker y Docker Compose
 - Volumen externo para RabbitMQ (si no existe):
 
+Verifica que usas Compose V2 (comando docker compose) y no docker-compose V1:
+
+```bash
+docker compose version
+```
+
+Si no tienes Compose V2 instalado, instala el plugin oficial de Docker Compose para tu distribucion.
+
 ```bash
 docker volume create rabbitmq_data
 ```
@@ -75,6 +83,38 @@ Validar estado:
 ```bash
 docker compose ps
 ```
+
+## Troubleshooting rapido
+
+Error al levantar con docker-compose V1:
+
+```text
+KeyError: 'ContainerConfig'
+```
+
+Causa probable: incompatibilidad de docker-compose 1.29.x con versiones recientes de Docker Engine.
+
+Solucion recomendada:
+
+```bash
+docker compose down --remove-orphans
+docker rm -f rabbitmq postgres redis auth-service chat-service frontend 2>/dev/null || true
+docker compose up -d --build
+```
+
+Si aparece 502 Bad Gateway en /chat o /ws:
+
+```bash
+docker compose ps
+docker compose logs --tail=200 chat-service
+curl -sS http://localhost:8082/chat/ping
+```
+
+Notas:
+
+- Si auth/login responde 200 pero rutas /chat/* y /ws fallan con 502, normalmente chat-service no esta levantado o no esta listo aun.
+- Espera a que rabbitmq, postgres y redis esten healthy antes de reintentar pruebas funcionales.
+- Levanta siempre con docker compose (V2), evita docker-compose (V1).
 
 URLs:
 
