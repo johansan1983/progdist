@@ -15,20 +15,29 @@ const simulateRestoreBtn = document.getElementById("simulateRestoreBtn");
 const simulationStatusEl = document.getElementById("simulationStatus");
 const presenceCountEl = document.getElementById("presenceCount");
 const presenceListEl = document.getElementById("presenceList");
+const loadMoreBtn = document.getElementById("loadMoreBtn");
+const loadMoreStatusEl = document.getElementById("loadMoreStatus");
 
 const SESSION_STORAGE_KEY = "superchat.session";
 const TYPING_STOP_DELAY_MS = 1400;
+const PAGE_SIZE = 50;
 
 const state = {
   token: "",
   username: "",
   conversationId: 1,
+  alias: "",
+  phone: "",
   stompClient: null,
   presenceRefreshTimer: null,
   isTyping: false,
   typingStopTimer: null,
   remoteTypingTimers: new Map(),
   remoteTypingUsers: new Set(),
+  currentPage: 0,
+  totalPages: 0,
+  isLoadingMessages: false,
+  optimisticMessages: new Map(),
 };
 
 function setPanels(isAuthenticated) {
@@ -37,13 +46,16 @@ function setPanels(isAuthenticated) {
 }
 
 function setSessionInfo() {
-  sessionInfoEl.textContent = `Usuario: ${state.username} | Conversacion: ${state.conversationId}`;
+  const display = state.alias ? `${state.alias} (${state.phone || state.username})` : state.phone || state.username;
+  sessionInfoEl.textContent = `Usuario: ${display} | Conversacion: ${state.conversationId}`;
 }
 
 function saveSession() {
   const payload = {
     token: state.token,
     username: state.username,
+    alias: state.alias,
+    phone: state.phone,
     conversationId: state.conversationId,
   };
   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
@@ -64,7 +76,12 @@ function disconnectWebSocket() {
 function resetState() {
   state.token = "";
   state.username = "";
+  state.alias = "";
+  state.phone = "";
   state.conversationId = 1;
+  state.currentPage = 0;
+  state.totalPages = 0;
+  state.optimisticMessages.clear();
 }
 
 function logout() {
@@ -91,9 +108,8 @@ function startPresencePolling() {
   if (state.presenceRefreshTimer) {
     clearInterval(state.presenceRefreshTimer);
   }
-  state.presenceRefreshTimer = setInterval(() => {
-    refreshPresence();
-  }, 3000);
+  // Presence is now pushed via WebSocket /topic/presence subscription
+  // This function is kept for backward compatibility but no longer polls
 }
 
 function renderPresence(users) {
@@ -118,7 +134,11 @@ function renderPresence(users) {
 
   uniqueSortedUsers.forEach((user) => {
     const item = document.createElement("li");
-    item.textContent = user;
+    if (state.username && user === state.username && state.alias) {
+      item.textContent = `${state.alias} (${state.phone || state.username})`;
+    } else {
+      item.textContent = user;
+    }
     presenceListEl.appendChild(item);
   });
 }
@@ -190,14 +210,23 @@ function setSocketStatus(online) {
   socketTextEl.textContent = online ? "conectado" : "desconectado";
 }
 
-function appendMessage(message) {
+function appendMessage(message, isOptimistic = false) {
   const item = document.createElement("div");
-  item.className = "msg";
+  item.className = "msg" + (isOptimistic ? " msg-optimistic" : "");
+  if (message.optimisticId) {
+    item.id = `msg-${message.optimisticId}`;
+  }
 
   const meta = document.createElement("div");
   meta.className = "meta";
   const created = message.createdAt ? new Date(message.createdAt).toLocaleTimeString() : "";
-  meta.textContent = `${message.sender || "system"} ${created}`.trim();
+  const status = isOptimistic ? " (enviando...)" : "";
+  // Prefer alias display when message originates from current user (backend uses phone as username)
+  let displayedSender = message.sender || "system";
+  if (message.sender && state.username && message.sender === state.username && state.alias) {
+    displayedSender = `${state.alias} (${state.phone || state.username})`;
+  }
+  meta.textContent = `${displayedSender} ${created}${status}`.trim();
 
   const content = document.createElement("div");
   content.textContent = message.content || "";
@@ -331,11 +360,48 @@ async function ensureConversation() {
 
 async function loadHistory() {
   messagesEl.innerHTML = "";
-  const data = await api(`/chat/conversations/${state.conversationId}/messages`, {
-    method: "GET",
-  });
-  data.forEach(appendMessage);
-  scrollMessagesToBottom();
+  state.currentPage = 0;
+  state.optimisticMessages.clear();
+  await loadMoreMessages();
+}
+
+async function loadMoreMessages() {
+  if (state.isLoadingMessages || state.currentPage >= state.totalPages) {
+    if (loadMoreBtn) {
+      loadMoreBtn.classList.add("hidden");
+    }
+    return;
+  }
+
+  state.isLoadingMessages = true;
+  if (loadMoreStatusEl) {
+    loadMoreStatusEl.textContent = "Cargando...";
+  }
+
+  try {
+    const data = await api(`/chat/conversations/${state.conversationId}/messages?page=${state.currentPage}&size=${PAGE_SIZE}`, {
+      method: "GET",
+    });
+
+    state.totalPages = data.totalPages || 1;
+    if (data.messages) {
+      data.messages.forEach(msg => appendMessage(msg, false));
+      state.currentPage++;
+    }
+
+    if (state.currentPage < state.totalPages && loadMoreBtn) {
+      loadMoreBtn.classList.remove("hidden");
+    } else if (loadMoreBtn) {
+      loadMoreBtn.classList.add("hidden");
+    }
+  } catch (err) {
+    if (loadMoreStatusEl) {
+      loadMoreStatusEl.textContent = "Error al cargar mensajes";
+    }
+  } finally {
+    state.isLoadingMessages = false;
+    scrollMessagesToBottom();
+  }
 }
 
 function connectWebSocket() {
@@ -347,6 +413,8 @@ function connectWebSocket() {
     webSocketFactory: () => socket,
     connectHeaders: {
       username: state.username,
+      alias: state.alias || "",
+      phone: state.phone || state.username
     },
     reconnectDelay: 5000,
     onConnect: () => {
@@ -359,7 +427,14 @@ function connectWebSocket() {
         const event = JSON.parse(frame.body);
         handleTypingEvent(event);
       });
+      // Subscribe to presence updates (pushed by server)
+      client.subscribe(`/topic/presence`, (frame) => {
+        const snapshot = JSON.parse(frame.body);
+        renderPresence(snapshot.users || []);
+      });
+      // Get initial presence snapshot
       refreshPresence();
+      // Note: startPresencePolling() no longer polls; presence is now push-based
       startPresencePolling();
     },
     onStompError: () => setSocketStatus(false),
@@ -374,17 +449,22 @@ loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   authErrorEl.textContent = "";
 
-  const username = document.getElementById("username").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const alias = document.getElementById("alias").value.trim();
   const password = document.getElementById("password").value;
 
   try {
+    // Send phone as the username identifier to the auth API and include alias
     const login = await api("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username: phone, password, alias }),
     });
 
     state.token = login.token;
-    state.username = login.username;
+    // keep phone as the canonical username used by backend
+    state.username = phone;
+    state.phone = phone;
+    state.alias = alias || "";
 
     await ensureConversation();
     setSessionInfo();
@@ -405,6 +485,19 @@ messageForm.addEventListener("submit", async (event) => {
     return;
   }
 
+  const optimisticId = `temp-${Date.now()}`;
+  const optimisticMessage = {
+    optimisticId,
+    sender: state.alias || state.phone || state.username,
+    content,
+    createdAt: new Date().toISOString(),
+  };
+
+  // Show optimistic message immediately
+  appendMessage(optimisticMessage, true);
+  state.optimisticMessages.set(optimisticId, optimisticMessage);
+  messageInputEl.value = "";
+
   try {
     sendTypingEvent(false);
     await api("/chat/messages", {
@@ -414,13 +507,20 @@ messageForm.addEventListener("submit", async (event) => {
         content,
       }),
     });
-    messageInputEl.value = "";
-  } catch {
-    appendMessage({
-      sender: "system",
-      content: "No se pudo enviar el mensaje",
-      createdAt: new Date().toISOString(),
-    });
+    // Remove optimistic state on success
+    state.optimisticMessages.delete(optimisticId);
+    const msgEl = document.getElementById(`msg-${optimisticId}`);
+    if (msgEl) {
+      msgEl.classList.remove("msg-optimistic");
+    }
+  } catch (err) {
+    // Update optimistic message to show error state
+    const msgEl = document.getElementById(`msg-${optimisticId}`);
+    if (msgEl) {
+      msgEl.classList.add("msg-error");
+      msgEl.title = "Falló al enviar. Intenta de nuevo.";
+    }
+    // Keep in optimisticMessages for retry
   }
 });
 
@@ -453,6 +553,12 @@ if (simulateRestoreBtn) {
   });
 }
 
+if (loadMoreBtn) {
+  loadMoreBtn.addEventListener("click", async () => {
+    await loadMoreMessages();
+  });
+}
+
 async function restoreSession() {
   const saved = localStorage.getItem(SESSION_STORAGE_KEY);
   if (!saved) {
@@ -468,6 +574,8 @@ async function restoreSession() {
 
     state.token = parsed.token;
     state.username = parsed.username;
+    state.alias = parsed.alias || "";
+    state.phone = parsed.phone || parsed.username;
     if (Number.isInteger(parsed.conversationId) && parsed.conversationId > 0) {
       state.conversationId = parsed.conversationId;
     }

@@ -290,6 +290,21 @@ button:hover {
   animation: pop 220ms ease;
 }
 
+.msg-optimistic {
+  opacity: 0.7;
+  background: #f0fdf9;
+  border-color: #c0e3db;
+}
+
+.msg-error {
+  background: #fef2f2;
+  border-color: #fed2d2;
+}
+
+.msg-error .meta {
+  color: var(--danger);
+}
+
 .msg .meta {
   color: var(--muted);
   font-size: 0.8rem;
@@ -316,6 +331,46 @@ button:hover {
 .btn-ghost:hover {
   transform: translateY(0);
   border-color: #b6d4ca;
+}
+
+.load-more-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--edge);
+}
+
+.btn-secondary {
+  padding: 0.55rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.btn-secondary:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent 92%);
+  border-color: var(--accent-2);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.load-status {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.hidden {
+  display: none !important;
 }
 
 @keyframes rise-in {

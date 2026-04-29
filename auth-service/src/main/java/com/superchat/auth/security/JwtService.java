@@ -29,15 +29,23 @@ public class JwtService {
     }
 
     public String generateToken(String username) {
+        return generateToken(username, null);
+    }
+
+    public String generateToken(String username, String alias) {
         Instant now = Instant.now();
         Instant expiry = now.plusMillis(expirationMs);
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(username)
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(expiry))
-                .signWith(secretKey)
-                .compact();
+                .expiration(Date.from(expiry));
+
+        if (alias != null && !alias.isBlank()) {
+            builder.claim("alias", alias.trim());
+        }
+
+        return builder.signWith(secretKey).compact();
     }
 
     public Claims parseAndValidate(String token) throws JwtException {

@@ -7,11 +7,13 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "61613:61613"
     environment:
       RABBITMQ_DEFAULT_USER: superchat
       RABBITMQ_DEFAULT_PASS: superchat123
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -97,11 +99,16 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: superchat
       SPRING_RABBITMQ_PASSWORD: superchat123
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
       AUTH_VALIDATE_URL: http://auth-service:8081/auth/validate
+      JWT_SECRET: SuperChatJwtSecretKey_MustBeLong_AtLeast32Bytes_2026
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       auth-service:
         condition: service_started

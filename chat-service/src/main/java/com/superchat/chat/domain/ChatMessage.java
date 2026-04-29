@@ -43,6 +43,10 @@ public class ChatMessage {
         return id;
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public Conversation getConversation() {
         return conversation;
     }
@@ -69,5 +73,9 @@ public class ChatMessage {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

@@ -19,8 +19,12 @@
         <p class="subtitle">MVP microservicios en tiempo real</p>
         <form id="loginForm" class="stack">
           <label>
-            Usuario
-            <input id="username" type="text" placeholder="alice" required />
+            Usuario o teléfono
+            <input id="phone" type="text" placeholder="demo o +34123456789" autocomplete="username" required />
+          </label>
+          <label>
+            Alias (mostrar)
+            <input id="alias" type="text" placeholder="Alice" />
           </label>
           <label>
             Password
@@ -56,6 +60,11 @@
               </div>
               <p id="simulationStatus" class="sim-status">Estado publicador: desconocido</p>
             </section>
+
+            <div class="load-more-container">
+              <button id="loadMoreBtn" type="button" class="btn-secondary hidden">Cargar mas mensajes</button>
+              <span id="loadMoreStatus" class="load-status"></span>
+            </div>
 
             <div id="messages" class="messages"></div>
             <div id="typingIndicator" class="typing-indicator hidden" aria-live="polite"></div>

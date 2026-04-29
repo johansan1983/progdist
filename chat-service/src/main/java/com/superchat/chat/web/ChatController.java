@@ -8,6 +8,7 @@ import com.superchat.chat.domain.Conversation;
 import com.superchat.chat.security.AuthClient;
 import com.superchat.chat.service.ChatService;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -74,13 +76,17 @@ public class ChatController {
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
-    public ResponseEntity<List<Map<String, Object>>> listMessages(
+    public ResponseEntity<Map<String, Object>> listMessages(
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @PathVariable Long conversationId
+            @PathVariable Long conversationId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "50") int size
     ) {
         authClient.validateAndGetUsername(authorization);
 
-        List<Map<String, Object>> response = chatService.listMessages(conversationId).stream()
+        Page<ChatMessage> paged = chatService.listMessages(conversationId, page, size);
+
+        List<Map<String, Object>> messages = paged.getContent().stream()
                 .map(message -> Map.<String, Object>of(
                         "id", message.getId(),
                         "conversationId", message.getConversation().getId(),
@@ -89,6 +95,14 @@ public class ChatController {
                         "createdAt", message.getCreatedAt().toString()
                 ))
                 .toList();
+
+        Map<String, Object> response = Map.of(
+                "messages", messages,
+                "page", paged.getNumber(),
+                "size", paged.getSize(),
+                "totalPages", paged.getTotalPages(),
+                "totalElements", paged.getTotalElements()
+        );
 
         return ResponseEntity.ok(response);
     }

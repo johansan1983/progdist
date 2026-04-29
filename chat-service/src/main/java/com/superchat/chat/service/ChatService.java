@@ -6,6 +6,9 @@ import java.util.Map;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,7 +92,10 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChatMessage> listMessages(Long conversationId) {
-        return chatMessageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId);
+    public Page<ChatMessage> listMessages(Long conversationId, int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 200));
+        PageRequest pr = PageRequest.of(safePage, safeSize, Sort.by("createdAt").ascending());
+        return chatMessageRepository.findByConversationId(conversationId, pr);
     }
 }
