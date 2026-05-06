@@ -1,4 +1,7 @@
 services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
   rabbitmq:
     image: rabbitmq:4-management
     container_name: rabbitmq
@@ -36,6 +39,7 @@ services:
       POSTGRES_PASSWORD: superchat123
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U superchat -d superchat"]
       interval: 10s
@@ -57,29 +61,79 @@ services:
       timeout: 5s
       retries: 10
 
-  auth-service:
-    build: ./auth-service
-    container_name: auth-service
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2.5
+    container_name: keycloak
     restart: always
     ports:
-      - "8081:8081"
+      - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superchat
-      SPRING_DATASOURCE_USERNAME: superchat
-      SPRING_DATASOURCE_PASSWORD: superchat123
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: superchat
-      SPRING_RABBITMQ_PASSWORD: superchat123
-      JWT_SECRET: SuperChatJwtSecretKey_MustBeLong_AtLeast32Bytes_2026
-      JWT_EXPIRATION_MS: 3600000
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: superchat
+      KC_DB_PASSWORD: superchat123
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: ["start-dev", "--import-realm"]
+    volumes:
+      - ./keycloak/superchat-realm.json:/opt/keycloak/data/import/superchat-realm.json:ro
     depends_on:
-      rabbitmq:
-        condition: service_healthy
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 90s
+
+  # ── Spring Cloud Platform ───────────────────────────────────────────────────
+
+  config-server:
+    build: ./config-server
+    container_name: config-server
+    restart: always
+    ports:
+      - "8888:8888"
+    environment:
+      SERVER_PORT: 8888
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8888/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: always
+    ports:
+      - "8090:8090"
+    environment:
+      SERVER_PORT: 8090
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      config-server:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8090/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ── Business Services ───────────────────────────────────────────────────────
 
   chat-service:
     build:
@@ -92,6 +146,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SERVER_PORT: 8082
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superchat
       SPRING_DATASOURCE_USERNAME: superchat
       SPRING_DATASOURCE_PASSWORD: superchat123
@@ -99,19 +154,77 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: superchat
       SPRING_RABBITMQ_PASSWORD: superchat123
-      SPRING_REDIS_HOST: redis
-      SPRING_REDIS_PORT: 6379
-      AUTH_VALIDATE_URL: http://auth-service:8081/auth/validate
-      JWT_SECRET: SuperChatJwtSecretKey_MustBeLong_AtLeast32Bytes_2026
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
     depends_on:
+      config-server:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      auth-service:
-        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/users
+      SPRING_DATASOURCE_USERNAME: superchat
+      SPRING_DATASOURCE_PASSWORD: superchat123
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    restart: always
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notifications
+      SPRING_DATASOURCE_USERNAME: superchat
+      SPRING_DATASOURCE_PASSWORD: superchat123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: superchat
+      SPRING_RABBITMQ_PASSWORD: superchat123
+    depends_on:
+      config-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8084/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
 
   frontend:
     build:
@@ -122,13 +235,44 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      auth-service:
-        condition: service_started
+      api-gateway:
+        condition: service_healthy
       chat-service:
         condition: service_started
+
+  # ── Observability ───────────────────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
 
 volumes:
   rabbitmq_data:
     external: true
   postgres_data:
   redis_data:
+  prometheus_data:
+  grafana_data:

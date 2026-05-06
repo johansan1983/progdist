@@ -5,48 +5,40 @@ import java.util.Map;
 
 import com.superchat.chat.domain.ChatMessage;
 import com.superchat.chat.domain.Conversation;
-import com.superchat.chat.security.AuthClient;
 import com.superchat.chat.service.ChatService;
 
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/chat")
-@CrossOrigin(origins = "*")
 public class ChatController {
 
     private final ChatService chatService;
-    private final AuthClient authClient;
 
-    public ChatController(ChatService chatService, AuthClient authClient) {
+    public ChatController(ChatService chatService) {
         this.chatService = chatService;
-        this.authClient = authClient;
     }
 
     @GetMapping("/ping")
     public Map<String, Object> ping() {
-        return Map.of(
-                "service", "chat-service",
-                "status", "ok"
-        );
+        return Map.of("service", "chat-service", "status", "ok");
     }
 
     @PostMapping("/conversations")
     public ResponseEntity<Map<String, Object>> createConversation(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
+            Authentication authentication,
             @RequestBody CreateConversationRequest request
     ) {
-        String username = authClient.validateAndGetUsername(authorization);
+        String username = authentication.getName();
         Conversation conversation = chatService.createConversation(request.name());
 
         return ResponseEntity.ok(Map.of(
@@ -59,10 +51,10 @@ public class ChatController {
 
     @PostMapping("/messages")
     public ResponseEntity<Map<String, Object>> sendMessage(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
+            Authentication authentication,
             @RequestBody MessageRequest request
     ) {
-        String username = authClient.validateAndGetUsername(authorization);
+        String username = authentication.getName();
         ChatMessage saved = chatService.sendMessage(request.conversationId(), request.content(), username);
 
         return ResponseEntity.ok(Map.of(
@@ -77,13 +69,11 @@ public class ChatController {
 
     @GetMapping("/conversations/{conversationId}/messages")
     public ResponseEntity<Map<String, Object>> listMessages(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
+            Authentication authentication,
             @PathVariable Long conversationId,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "50") int size
     ) {
-        authClient.validateAndGetUsername(authorization);
-
         Page<ChatMessage> paged = chatService.listMessages(conversationId, page, size);
 
         List<Map<String, Object>> messages = paged.getContent().stream()
@@ -96,15 +86,13 @@ public class ChatController {
                 ))
                 .toList();
 
-        Map<String, Object> response = Map.of(
+        return ResponseEntity.ok(Map.of(
                 "messages", messages,
                 "page", paged.getNumber(),
                 "size", paged.getSize(),
                 "totalPages", paged.getTotalPages(),
                 "totalElements", paged.getTotalElements()
-        );
-
-        return ResponseEntity.ok(response);
+        ));
     }
 
     public record CreateConversationRequest(String name) {}

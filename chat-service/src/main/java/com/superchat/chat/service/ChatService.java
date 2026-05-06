@@ -1,7 +1,6 @@
 package com.superchat.chat.service;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -27,19 +26,25 @@ public class ChatService {
     private final RabbitTemplate rabbitTemplate;
     private final String exchange;
     private final String routingKey;
+    private final String notificationsExchange;
+    private final String notificationsRoutingKey;
 
     public ChatService(
             ConversationRepository conversationRepository,
             ChatMessageRepository chatMessageRepository,
             RabbitTemplate rabbitTemplate,
             @Value("${chat.rabbit.exchange}") String exchange,
-            @Value("${chat.rabbit.routing-key}") String routingKey
+            @Value("${chat.rabbit.routing-key}") String routingKey,
+            @Value("${chat.notifications.exchange:notifications.exchange}") String notificationsExchange,
+            @Value("${chat.notifications.routing-key:notifications.message.created}") String notificationsRoutingKey
     ) {
         this.conversationRepository = conversationRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.rabbitTemplate = rabbitTemplate;
         this.exchange = exchange;
         this.routingKey = routingKey;
+        this.notificationsExchange = notificationsExchange;
+        this.notificationsRoutingKey = notificationsRoutingKey;
     }
 
     @Transactional
@@ -77,7 +82,7 @@ public class ChatService {
 
         ChatMessage saved = chatMessageRepository.save(message);
 
-        Map<String, Object> event = Map.of(
+        Map<String, Object> chatEvent = Map.of(
                 "eventType", "CHAT_MESSAGE_CREATED",
                 "messageId", saved.getId(),
                 "conversationId", conversationId,
@@ -86,7 +91,18 @@ public class ChatService {
                 "createdAt", saved.getCreatedAt().toString(),
                 "publishedAt", Instant.now().toString()
         );
-        rabbitTemplate.convertAndSend(exchange, routingKey, event);
+        rabbitTemplate.convertAndSend(exchange, routingKey, chatEvent);
+
+        Map<String, Object> notificationEvent = Map.of(
+                "eventType", "NOTIFICATION_EVENT",
+                "type", "MESSAGE",
+                "messageId", saved.getId(),
+                "conversationId", conversationId,
+                "sender", sender,
+                "content", saved.getContent(),
+                "createdAt", saved.getCreatedAt().toString()
+        );
+        rabbitTemplate.convertAndSend(notificationsExchange, notificationsRoutingKey, notificationEvent);
 
         return saved;
     }
