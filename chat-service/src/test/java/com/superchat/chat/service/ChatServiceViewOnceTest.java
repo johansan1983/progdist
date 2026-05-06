@@ -43,6 +43,8 @@ class ChatServiceViewOnceTest {
         Page<ChatMessage> page = new PageImpl<>(List.of(msg));
         when(messageRepository.findByConversationId(eq(1L), any(Pageable.class))).thenReturn(page);
 
+        when(messageRepository.markViewed(1L)).thenReturn(1);
+
         List<Map<String, Object>> result = chatService.listMessages(1L, 0, 50, "other-user-id");
 
         assertEquals(1, result.size());
@@ -61,6 +63,7 @@ class ChatServiceViewOnceTest {
 
         assertEquals(1, result.size());
         assertNull(result.get(0).get("content"));
+        assertNull(result.get(0).get("attachmentUrl"));
         assertTrue((Boolean) result.get(0).get("viewOnceExpired"));
         verify(messageRepository, never()).markViewed(anyLong());
     }
@@ -88,6 +91,35 @@ class ChatServiceViewOnceTest {
 
         assertEquals("normal", result.get(0).get("content"));
         verify(messageRepository, never()).markViewed(anyLong());
+    }
+
+    @Test
+    void testListMessages_ViewOnce_SenderSeesFullContent_WhenAlreadyViewed() {
+        // sender's own view-once message that has already been viewed by recipient
+        Conversation conversation = new Conversation();
+        conversation.setId(1L);
+        conversation.setName("test");
+
+        ChatMessage msg = new ChatMessage();
+        msg.setId(4L);
+        msg.setConversation(conversation);
+        msg.setSender("sender-user");
+        msg.setContent("view once content");
+        msg.setViewOnce(true);
+        msg.setViewed(true);   // already viewed by recipient
+        msg.setCreatedAt(Instant.now());
+
+        Page<ChatMessage> page = new PageImpl<>(List.of(msg));
+        when(messageRepository.findByConversationId(eq(1L), any())).thenReturn(page);
+
+        List<Map<String, Object>> result = chatService.listMessages(1L, 0, 50, "sender-user");
+
+        assertEquals(1, result.size());
+        Map<String, Object> m = result.get(0);
+        assertEquals("view once content", m.get("content"));
+        assertEquals(false, m.get("viewOnceExpired"));
+        // markViewed should NOT be called (sender bypass)
+        verify(messageRepository, never()).markViewed(4L);
     }
 
     private ChatMessage viewOnceMessage(Long id, String sender, String content, boolean viewed) {

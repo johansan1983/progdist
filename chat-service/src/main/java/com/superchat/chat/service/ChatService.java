@@ -1,6 +1,7 @@
 package com.superchat.chat.service;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -92,7 +93,7 @@ public class ChatService {
 
         ChatMessage saved = chatMessageRepository.save(message);
 
-        Map<String, Object> chatEvent = new java.util.HashMap<>();
+        Map<String, Object> chatEvent = new HashMap<>();
         chatEvent.put("eventType", "CHAT_MESSAGE_CREATED");
         chatEvent.put("messageId", saved.getId());
         chatEvent.put("conversationId", conversationId);
@@ -105,7 +106,7 @@ public class ChatService {
         chatEvent.put("attachmentType", saved.getAttachmentType() != null ? saved.getAttachmentType() : "");
         rabbitTemplate.convertAndSend(exchange, routingKey, chatEvent);
 
-        Map<String, Object> notificationEvent = new java.util.HashMap<>();
+        Map<String, Object> notificationEvent = new HashMap<>();
         notificationEvent.put("eventType", "NOTIFICATION_EVENT");
         notificationEvent.put("type", "MESSAGE");
         notificationEvent.put("messageId", saved.getId());
@@ -127,7 +128,7 @@ public class ChatService {
         Page<ChatMessage> paged = chatMessageRepository.findByConversationId(conversationId, pr);
 
         return paged.getContent().stream().map(msg -> {
-            Map<String, Object> m = new java.util.HashMap<>();
+            Map<String, Object> m = new HashMap<>();
             m.put("id", msg.getId());
             m.put("conversationId", msg.getConversation().getId());
             m.put("sender", msg.getSender());
@@ -141,9 +142,15 @@ public class ChatService {
 
             if (msg.isViewOnce() && !isSender) {
                 if (!msg.isViewed()) {
-                    m.put("content", msg.getContent() != null ? msg.getContent() : "");
-                    m.put("viewOnceExpired", false);
-                    chatMessageRepository.markViewed(msg.getId());
+                    int updated = chatMessageRepository.markViewed(msg.getId());
+                    if (updated > 0) {
+                        m.put("content", msg.getContent() != null ? msg.getContent() : "");
+                        m.put("viewOnceExpired", false);
+                    } else {
+                        m.put("content", null);
+                        m.put("attachmentUrl", null);
+                        m.put("viewOnceExpired", true);
+                    }
                 } else {
                     m.put("content", null);
                     m.put("attachmentUrl", null);
