@@ -328,6 +328,7 @@ function appendMessage(message, isOptimistic = false) {
     img.src = message.attachmentUrl;
     img.className = 'msg-image';
     img.loading = 'lazy';
+    img.addEventListener('click', () => openLightbox(message.attachmentUrl));
     item.appendChild(img);
   } else if (message.attachmentType === 'AUDIO' && message.attachmentUrl) {
     const audio = document.createElement('audio');
@@ -796,6 +797,35 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     emojiPickerContainer.classList.add('hidden');
+  }
+});
+
+// ── Image lightbox ────────────────────────────────────────────────────────────
+const imgLightbox = document.getElementById('imgLightbox');
+const imgLightboxImg = document.getElementById('imgLightboxImg');
+
+function openLightbox(src) {
+  imgLightboxImg.src = src;
+  imgLightbox.classList.remove('hidden');
+}
+
+imgLightbox.addEventListener('click', () => {
+  imgLightbox.classList.add('hidden');
+  imgLightboxImg.src = '';
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !imgLightbox.classList.contains('hidden')) {
+    imgLightbox.classList.add('hidden');
+    imgLightboxImg.src = '';
+  }
+});
+
+// ── Enter to send ─────────────────────────────────────────────────────────────
+messageInputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    messageForm.requestSubmit();
   }
 });
 

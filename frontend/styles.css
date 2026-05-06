@@ -496,6 +496,7 @@ button:hover {
   border-radius: 8px;
   display: block;
   margin-top: 0.4rem;
+  cursor: zoom-in;
 }
 
 .msg-audio {
@@ -657,4 +658,13 @@ button:hover {
 
 .presence-list li:hover {
   color: var(--accent);
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  cursor: zoom-out;
+  object-fit: contain;
 }
