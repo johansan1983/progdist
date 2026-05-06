@@ -27,16 +27,16 @@ public class Conversation {
     @Column(nullable = false, length = 10)
     private String type = "GROUP";
 
-    @Column(length = 36)
+    @Column(name = "dm_participant_a", length = 36)
     private String dmParticipantA;
 
-    @Column(length = 36)
+    @Column(name = "dm_participant_b", length = 36)
     private String dmParticipantB;
 
-    @Column(length = 120)
+    @Column(name = "dm_participant_a_name", length = 120)
     private String dmParticipantAName;
 
-    @Column(length = 120)
+    @Column(name = "dm_participant_b_name", length = 120)
     private String dmParticipantBName;
 
     @PrePersist
