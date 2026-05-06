@@ -63,13 +63,14 @@ public class ChatService {
     }
 
     @Transactional
-    public ChatMessage sendMessage(Long conversationId, String content, String sender) {
+    public ChatMessage sendMessage(Long conversationId, String content, String sender, String senderName,
+            String attachmentUrl, String attachmentType) {
         if (conversationId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "conversationId is required");
         }
 
-        if (content == null || content.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content is required");
+        if ((content == null || content.isBlank()) && (attachmentUrl == null || attachmentUrl.isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content or attachment is required");
         }
 
         Conversation conversation = conversationRepository.findById(conversationId)
@@ -77,31 +78,40 @@ public class ChatService {
 
         ChatMessage message = new ChatMessage();
         message.setConversation(conversation);
-        message.setContent(content.trim());
+        if (content != null && !content.isBlank()) {
+            message.setContent(content.trim());
+        }
+        if (attachmentUrl != null && !attachmentUrl.isBlank()) {
+            message.setAttachmentUrl(attachmentUrl.trim());
+            message.setAttachmentType(attachmentType);
+        }
         message.setSender(sender);
+        message.setSenderName(senderName);
 
         ChatMessage saved = chatMessageRepository.save(message);
 
-        Map<String, Object> chatEvent = Map.of(
-                "eventType", "CHAT_MESSAGE_CREATED",
-                "messageId", saved.getId(),
-                "conversationId", conversationId,
-                "sender", sender,
-                "content", saved.getContent(),
-                "createdAt", saved.getCreatedAt().toString(),
-                "publishedAt", Instant.now().toString()
-        );
+        Map<String, Object> chatEvent = new java.util.HashMap<>();
+        chatEvent.put("eventType", "CHAT_MESSAGE_CREATED");
+        chatEvent.put("messageId", saved.getId());
+        chatEvent.put("conversationId", conversationId);
+        chatEvent.put("sender", sender);
+        chatEvent.put("senderName", senderName != null ? senderName : sender);
+        chatEvent.put("content", saved.getContent() != null ? saved.getContent() : "");
+        chatEvent.put("createdAt", saved.getCreatedAt().toString());
+        chatEvent.put("publishedAt", Instant.now().toString());
+        chatEvent.put("attachmentUrl", saved.getAttachmentUrl() != null ? saved.getAttachmentUrl() : "");
+        chatEvent.put("attachmentType", saved.getAttachmentType() != null ? saved.getAttachmentType() : "");
         rabbitTemplate.convertAndSend(exchange, routingKey, chatEvent);
 
-        Map<String, Object> notificationEvent = Map.of(
-                "eventType", "NOTIFICATION_EVENT",
-                "type", "MESSAGE",
-                "messageId", saved.getId(),
-                "conversationId", conversationId,
-                "sender", sender,
-                "content", saved.getContent(),
-                "createdAt", saved.getCreatedAt().toString()
-        );
+        Map<String, Object> notificationEvent = new java.util.HashMap<>();
+        notificationEvent.put("eventType", "NOTIFICATION_EVENT");
+        notificationEvent.put("type", "MESSAGE");
+        notificationEvent.put("messageId", saved.getId());
+        notificationEvent.put("conversationId", conversationId);
+        notificationEvent.put("sender", sender);
+        notificationEvent.put("senderName", senderName != null ? senderName : sender);
+        notificationEvent.put("content", saved.getContent() != null ? saved.getContent() : "");
+        notificationEvent.put("createdAt", saved.getCreatedAt().toString());
         rabbitTemplate.convertAndSend(notificationsExchange, notificationsRoutingKey, notificationEvent);
 
         return saved;
