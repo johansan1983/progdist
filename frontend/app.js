@@ -42,6 +42,7 @@ const state = {
   optimisticMessages: new Map(),
   presenceInterval: null,
   pendingAttachment: null, // { file, uploadUrl, publicUrl, attachmentType }
+  presignInProgress: false,
 };
 
 // ── Token management ─────────────────────────────────────────────────────────
@@ -503,6 +504,7 @@ loginForm.addEventListener("submit", async event => {
 
 messageForm.addEventListener("submit", async event => {
   event.preventDefault();
+  if (state.presignInProgress) return; // wait for presign to complete
   const content = messageInputEl.value.trim();
   if (!content && !state.pendingAttachment) return;
 
@@ -610,6 +612,8 @@ fileInput.addEventListener('change', async () => {
     return;
   }
 
+  state.presignInProgress = true;
+
   const contentType = file.type || 'application/octet-stream';
   try {
     // Auto-refresh token before expiry
@@ -628,8 +632,14 @@ fileInput.addEventListener('change', async () => {
     if (!presignResp.ok) throw new Error(await presignResp.text());
     const data = await presignResp.json();
 
+    if (!data?.uploadUrl || !data?.publicUrl || !data?.attachmentType) {
+      throw new Error('Respuesta de presign inválida del servidor');
+    }
+
     state.pendingAttachment = { file, uploadUrl: data.uploadUrl, publicUrl: data.publicUrl, attachmentType: data.attachmentType };
 
+    const oldImg = attachmentPreview.querySelector('img');
+    if (oldImg && oldImg.src.startsWith('blob:')) URL.revokeObjectURL(oldImg.src);
     attachmentPreview.innerHTML = '';
     attachmentPreview.classList.remove('hidden');
 
@@ -648,15 +658,19 @@ fileInput.addEventListener('change', async () => {
     removeBtn.type = 'button';
     removeBtn.className = 'remove-attachment';
     removeBtn.onclick = () => {
+      const oldImg = attachmentPreview.querySelector('img');
+      if (oldImg && oldImg.src.startsWith('blob:')) URL.revokeObjectURL(oldImg.src);
       state.pendingAttachment = null;
       attachmentPreview.classList.add('hidden');
       attachmentPreview.innerHTML = '';
       fileInput.value = '';
     };
     attachmentPreview.appendChild(removeBtn);
+    state.presignInProgress = false;
   } catch (e) {
     alert('Error al preparar el adjunto: ' + e.message);
     fileInput.value = '';
+    state.presignInProgress = false;
   }
 });
 
