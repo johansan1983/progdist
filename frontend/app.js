@@ -45,6 +45,8 @@ const state = {
   presenceInterval: null,
   msgSub: null,
   typingSub: null,
+  bgSubs: new Map(),       // convId → stomp subscription for background unread tracking
+  unreadCounts: new Map(), // convId → unread count
   pendingAttachment: null, // { file, uploadUrl, publicUrl, attachmentType }
   presignInProgress: false,
   viewOnce: false,
@@ -132,6 +134,8 @@ function setSocketStatus(online) {
 }
 
 function disconnectWebSocket() {
+  state.bgSubs.forEach(sub => sub.unsubscribe());
+  state.bgSubs.clear();
   if (state.stompClient) {
     state.stompClient.deactivate();
     state.stompClient = null;
@@ -149,12 +153,14 @@ function resetState() {
   state.currentPage = 0;
   state.totalPages = 0;
   state.optimisticMessages.clear();
+  state.unreadCounts.clear();
   clearInterval(state.presenceInterval);
   state.presenceInterval = null;
 }
 
 function logout() {
   sendTypingEvent(false);
+  stopRecording();
   disconnectWebSocket();
   clearSession();
   resetState();
@@ -279,12 +285,28 @@ function resolveDisplayName(message) {
 }
 
 function appendMessage(message, isOptimistic = false) {
-  // Deduplicate: if a confirmed optimistic message matches this real one, skip the duplicate
+  // Deduplicate: match incoming real message against a pending optimistic one by content.
+  // Check the Map first (populated before the REST call) so we catch the race where the
+  // WebSocket echo arrives before the REST response sets data-confirmed on the DOM element.
   if (!isOptimistic && message.sender === state.username) {
-    const confirmed = messagesEl.querySelector("[data-confirmed]");
-    if (confirmed && confirmed.dataset.content === message.content) {
-      confirmed.removeAttribute("data-confirmed");
-      confirmed.removeAttribute("data-content");
+    const msgContent = message.content || '';
+    for (const [id, pendingContent] of state.optimisticMessages) {
+      if (pendingContent === msgContent) {
+        state.optimisticMessages.delete(id);
+        const el = document.getElementById(`msg-${id}`);
+        if (el) {
+          el.classList.remove('msg-optimistic');
+          const metaEl = el.querySelector('.meta');
+          if (metaEl) metaEl.textContent = metaEl.textContent.replace(' (enviando...)', '');
+        }
+        return;
+      }
+    }
+    // Fallback: WebSocket echo arrived after REST response already confirmed the element
+    const confirmed = messagesEl.querySelector('[data-confirmed]');
+    if (confirmed && confirmed.dataset.content === msgContent) {
+      confirmed.removeAttribute('data-confirmed');
+      confirmed.removeAttribute('data-content');
       return;
     }
   }
@@ -422,42 +444,85 @@ async function loadConversations() {
     const list = await api("/api/chat/conversations", { method: "GET" });
     state.conversations = Array.isArray(list) ? list : [];
     renderConvList();
+    subscribeBackgroundConversations();
   } catch (e) {
     console.warn('Could not load conversations', e);
   }
+}
+
+function subscribeBackgroundConversations() {
+  if (!state.stompClient?.connected) return;
+  const activeId = state.activeConversationId ?? state.conversationId;
+  state.conversations.forEach(conv => {
+    if (conv.id === activeId) return; // active conv handled by msgSub
+    if (state.bgSubs.has(conv.id)) return; // already subscribed
+    const sub = state.stompClient.subscribe(`/topic/conversations.${conv.id}`, () => {
+      const count = (state.unreadCounts.get(conv.id) || 0) + 1;
+      state.unreadCounts.set(conv.id, count);
+      renderConvList();
+    });
+    state.bgSubs.set(conv.id, sub);
+  });
 }
 
 function renderConvList() {
   const ul = document.getElementById('convList');
   if (!ul) return;
   ul.innerHTML = '';
+  const activeId = state.activeConversationId ?? state.conversationId;
   state.conversations.forEach(conv => {
     const li = document.createElement('li');
     const label = conv.type === 'DIRECT'
       ? `\u{1F4AC} ${conv.otherParticipantName || conv.id}`
       : `\u{1F465} ${conv.name || conv.id}`;
-    li.textContent = label;
     li.title = label;
     li.dataset.id = String(conv.id);
-    const activeId = state.activeConversationId ?? state.conversationId;
     if (conv.id === activeId) li.classList.add('active');
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = label;
+    labelSpan.style.overflow = 'hidden';
+    labelSpan.style.textOverflow = 'ellipsis';
+    li.appendChild(labelSpan);
+
+    const unread = state.unreadCounts.get(conv.id) || 0;
+    if (unread > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'unread-badge';
+      badge.textContent = unread > 99 ? '99+' : String(unread);
+      li.appendChild(badge);
+    }
+
     li.addEventListener('click', () => switchConversation(conv.id, label));
     ul.appendChild(li);
   });
 }
 
 async function switchConversation(id, label) {
+  const prevId = state.activeConversationId;
   state.activeConversationId = id;
+  state.unreadCounts.delete(id);
+
   if (state.stompClient?.connected) {
+    // Put old active conv into background tracking before switching
+    if (prevId && prevId !== id && !state.bgSubs.has(prevId)) {
+      const bg = state.stompClient.subscribe(`/topic/conversations.${prevId}`, () => {
+        const count = (state.unreadCounts.get(prevId) || 0) + 1;
+        state.unreadCounts.set(prevId, count);
+        renderConvList();
+      });
+      state.bgSubs.set(prevId, bg);
+    }
     subscribeToConversation(id);
   }
-  const headerEl = document.querySelector('.chat-header h2');
+  const headerEl = document.getElementById('chatTitle');
   if (headerEl) headerEl.textContent = label || `Conversación #${id}`;
   const messagesEl = document.getElementById('messages');
   if (messagesEl) messagesEl.innerHTML = '';
   state.currentPage = 0;
   state.totalPages = 0;
   state.optimisticMessages.clear();
+  closeMobileSidebar();
   renderConvList();
   await loadMoreMessages();
 }
@@ -527,6 +592,10 @@ function handleTypingEvent(event) {
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 
 function subscribeToConversation(conversationId) {
+  // Drop any background sub for this conv — msgSub takes over
+  const existing = state.bgSubs.get(conversationId);
+  if (existing) { existing.unsubscribe(); state.bgSubs.delete(conversationId); }
+
   state.msgSub?.unsubscribe();
   state.typingSub?.unsubscribe();
   state.msgSub = state.stompClient.subscribe(`/topic/conversations.${conversationId}`, frame => {
@@ -552,6 +621,7 @@ function connectWebSocket() {
     onConnect: () => {
       setSocketStatus(true);
       subscribeToConversation(state.activeConversationId ?? state.conversationId);
+      subscribeBackgroundConversations();
       client.subscribe(`/topic/presence`, frame => {
         const snapshot = JSON.parse(frame.body);
         renderPresence(snapshot.users || []);
@@ -646,7 +716,7 @@ messageForm.addEventListener("submit", async event => {
   const viewOnce = state.viewOnce;
   const optimisticId = `temp-${Date.now()}`;
   appendMessage({ optimisticId, sender: state.username, senderName: state.displayName, content, attachmentUrl, attachmentType, viewOnce, viewOnceExpired: false, createdAt: new Date().toISOString() }, true);
-  state.optimisticMessages.set(optimisticId, true);
+  state.optimisticMessages.set(optimisticId, content || '');
   messageInputEl.value = "";
 
   // Reset view-once state
@@ -841,6 +911,200 @@ messageInputEl.addEventListener('keydown', (e) => {
     messageForm.requestSubmit();
   }
 });
+
+// ── Voice recording ───────────────────────────────────────────────────────────
+
+const voiceBtn = document.getElementById('voiceBtn');
+let mediaRecorder = null;
+let voicePermissionTooltip = null;
+let recordingChunks = [];
+let recordingTimer = null;
+let recordingSeconds = 0;
+let voiceTimerEl = null;
+
+function showVoicePermissionError(msg) {
+  if (voicePermissionTooltip) voicePermissionTooltip.remove();
+  voicePermissionTooltip = document.createElement('div');
+  voicePermissionTooltip.className = 'voice-permission-error';
+  voicePermissionTooltip.textContent = msg;
+  voiceBtn.insertAdjacentElement('afterend', voicePermissionTooltip);
+  // Auto-dismiss after 6 seconds
+  setTimeout(() => {
+    voicePermissionTooltip?.remove();
+    voicePermissionTooltip = null;
+  }, 6000);
+}
+
+function formatRecordingTime(secs) {
+  const m = String(Math.floor(secs / 60)).padStart(2, '0');
+  const s = String(secs % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function startVoiceTimerDisplay() {
+  recordingSeconds = 0;
+  voiceTimerEl = document.createElement('span');
+  voiceTimerEl.className = 'voice-timer';
+  voiceTimerEl.textContent = formatRecordingTime(0);
+  voiceBtn.insertAdjacentElement('afterend', voiceTimerEl);
+  recordingTimer = setInterval(() => {
+    recordingSeconds++;
+    if (voiceTimerEl) voiceTimerEl.textContent = formatRecordingTime(recordingSeconds);
+  }, 1000);
+}
+
+function stopVoiceTimerDisplay() {
+  clearInterval(recordingTimer);
+  recordingTimer = null;
+  if (voiceTimerEl) { voiceTimerEl.remove(); voiceTimerEl = null; }
+}
+
+async function startRecording() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showVoicePermissionError('Tu navegador no soporta grabación de audio.');
+    return;
+  }
+
+  // Check current permission state before calling getUserMedia so we can show
+  // a helpful message when the user has previously blocked the microphone.
+  if (navigator.permissions) {
+    try {
+      const status = await navigator.permissions.query({ name: 'microphone' });
+      if (status.state === 'denied') {
+        showVoicePermissionError('El micrófono está bloqueado. Haz clic en el ícono 🔒 de la barra de direcciones y permite el acceso al micrófono, luego recarga la página.');
+        return;
+      }
+    } catch {
+      // Permissions API not supported — proceed and let getUserMedia handle it
+    }
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = ['audio/webm', 'audio/ogg', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+    mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+    recordingChunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordingChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      handleRecordingFinished();
+    };
+    mediaRecorder.start();
+    voiceBtn.classList.add('recording');
+    voiceBtn.setAttribute('aria-pressed', 'true');
+    voiceBtn.title = 'Detener grabación';
+    startVoiceTimerDisplay();
+  } catch (err) {
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      showVoicePermissionError('Permiso de micrófono denegado. Haz clic en el ícono 🔒 de la barra de direcciones y permite el acceso al micrófono.');
+    } else if (err.name === 'NotFoundError') {
+      showVoicePermissionError('No se encontró ningún micrófono conectado.');
+    } else {
+      showVoicePermissionError('No se pudo acceder al micrófono: ' + err.message);
+    }
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  const btn = document.getElementById('voiceBtn');
+  if (btn) {
+    btn.classList.remove('recording');
+    btn.setAttribute('aria-pressed', 'false');
+    btn.title = 'Mensaje de voz';
+  }
+  stopVoiceTimerDisplay();
+}
+
+async function handleRecordingFinished() {
+  if (recordingChunks.length === 0) return;
+  const mimeType = recordingChunks[0].type || 'audio/webm';
+  const ext = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const blob = new Blob(recordingChunks, { type: mimeType });
+  const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: mimeType });
+
+  if (file.size > 50 * 1024 * 1024) { alert('La grabación supera 50 MB.'); return; }
+
+  state.presignInProgress = true;
+  try {
+    if (state.token && Date.now() > state.tokenExpiresAt) {
+      const ok = await refreshAccessToken();
+      if (!ok) { logout(); return; }
+    }
+    const presignResp = await fetch('/api/chat/attachments/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+      body: JSON.stringify({ filename: file.name, contentType: mimeType, conversationId: state.activeConversationId ?? state.conversationId }),
+    });
+    if (!presignResp.ok) throw new Error(await presignResp.text());
+    const data = await presignResp.json();
+    if (!data?.uploadUrl || !data?.publicUrl) throw new Error('Respuesta de presign inválida');
+
+    // Clear any existing attachment and show audio preview
+    const attachmentPreview = document.getElementById('attachmentPreview');
+    const oldImg = attachmentPreview.querySelector('img');
+    if (oldImg && oldImg.src.startsWith('blob:')) URL.revokeObjectURL(oldImg.src);
+    attachmentPreview.innerHTML = '';
+    attachmentPreview.classList.remove('hidden');
+
+    const audio = document.createElement('audio');
+    audio.src = URL.createObjectURL(blob);
+    audio.controls = true;
+    audio.style.maxWidth = '220px';
+    audio.style.height = '36px';
+    attachmentPreview.appendChild(audio);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '✕';
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-attachment';
+    removeBtn.onclick = () => {
+      URL.revokeObjectURL(audio.src);
+      state.pendingAttachment = null;
+      attachmentPreview.classList.add('hidden');
+      attachmentPreview.innerHTML = '';
+    };
+    attachmentPreview.appendChild(removeBtn);
+
+    state.pendingAttachment = { file, uploadUrl: data.uploadUrl, publicUrl: data.publicUrl, attachmentType: data.attachmentType || 'AUDIO' };
+  } catch (e) {
+    alert('Error al preparar el audio: ' + e.message);
+  } finally {
+    state.presignInProgress = false;
+  }
+}
+
+voiceBtn.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    stopRecording(); // reset if in odd state
+    startRecording();
+  }
+});
+
+// ── Mobile sidebar toggle ─────────────────────────────────────────────────────
+
+const sidebarToggleBtn = document.getElementById('sidebarToggle');
+const convSidebarEl = document.querySelector('.conv-sidebar');
+const sidebarBackdropEl = document.getElementById('sidebarBackdrop');
+
+function closeMobileSidebar() {
+  convSidebarEl?.classList.remove('open');
+  sidebarBackdropEl?.classList.remove('open');
+  sidebarToggleBtn?.setAttribute('aria-expanded', 'false');
+}
+
+function toggleMobileSidebar() {
+  const isOpen = convSidebarEl?.classList.toggle('open');
+  sidebarBackdropEl?.classList.toggle('open', isOpen);
+  sidebarToggleBtn?.setAttribute('aria-expanded', String(!!isOpen));
+}
+
+sidebarToggleBtn?.addEventListener('click', toggleMobileSidebar);
+sidebarBackdropEl?.addEventListener('click', closeMobileSidebar);
 
 // ── DM modal ──────────────────────────────────────────────────────────────────
 
