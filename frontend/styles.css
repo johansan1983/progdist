@@ -513,3 +513,22 @@ button:hover {
   text-decoration: none;
   font-size: 0.9rem;
 }
+
+.btn-icon.active {
+  background: #ff6b35;
+  color: white;
+}
+
+.view-once-badge {
+  font-size: 0.75rem;
+  margin-left: 4px;
+  opacity: 0.7;
+  vertical-align: middle;
+}
+
+.msg-view-once-expired {
+  color: #999;
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 4px 0;
+}

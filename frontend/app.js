@@ -43,6 +43,7 @@ const state = {
   presenceInterval: null,
   pendingAttachment: null, // { file, uploadUrl, publicUrl, attachmentType }
   presignInProgress: false,
+  viewOnce: false,
 };
 
 // ── Token management ─────────────────────────────────────────────────────────
@@ -284,8 +285,27 @@ function appendMessage(message, isOptimistic = false) {
   const status = isOptimistic ? " (enviando...)" : "";
   meta.textContent = `${resolveDisplayName(message)} ${created}${status}`.trim();
 
+  // View-once expired tombstone
+  if (message.viewOnceExpired) {
+    const tombstone = document.createElement("div");
+    tombstone.className = "msg-view-once-expired";
+    tombstone.textContent = "🔥 Mensaje visto — ya no está disponible";
+    item.append(meta, tombstone);
+    messagesEl.appendChild(item);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return;
+  }
+
   const content = document.createElement("div");
   content.textContent = message.content || "";
+
+  // View-once badge for fresh view-once messages
+  if (message.viewOnce && !message.viewOnceExpired) {
+    const badge = document.createElement("span");
+    badge.className = "view-once-badge";
+    badge.textContent = "🔥";
+    content.appendChild(badge);
+  }
 
   item.append(meta, content);
 
@@ -534,16 +554,25 @@ messageForm.addEventListener("submit", async event => {
     fileInput.value = '';
   }
 
+  const viewOnce = state.viewOnce;
   const optimisticId = `temp-${Date.now()}`;
-  appendMessage({ optimisticId, sender: state.username, senderName: state.displayName, content, attachmentUrl, attachmentType, createdAt: new Date().toISOString() }, true);
+  appendMessage({ optimisticId, sender: state.username, senderName: state.displayName, content, attachmentUrl, attachmentType, viewOnce, viewOnceExpired: false, createdAt: new Date().toISOString() }, true);
   state.optimisticMessages.set(optimisticId, true);
   messageInputEl.value = "";
+
+  // Reset view-once state
+  state.viewOnce = false;
+  const viewOnceBtn = document.getElementById('viewOnceBtn');
+  if (viewOnceBtn) {
+    viewOnceBtn.classList.remove('active');
+    viewOnceBtn.setAttribute('aria-pressed', 'false');
+  }
 
   try {
     sendTypingEvent(false);
     await api("/api/chat/messages", {
       method: "POST",
-      body: JSON.stringify({ conversationId: state.conversationId, content, attachmentUrl, attachmentType }),
+      body: JSON.stringify({ conversationId: state.conversationId, content, attachmentUrl, attachmentType, viewOnce }),
     });
     state.optimisticMessages.delete(optimisticId);
     const confirmedEl = document.getElementById(`msg-${optimisticId}`);
@@ -593,6 +622,15 @@ emojiPickerContainer.appendChild(picker);
 document.getElementById('emojiBtn').addEventListener('click', (e) => {
   e.stopPropagation();
   emojiPickerContainer.classList.toggle('hidden');
+});
+
+// ── View-once toggle ──────────────────────────────────────────────────────────
+
+const viewOnceBtn = document.getElementById('viewOnceBtn');
+viewOnceBtn.addEventListener('click', () => {
+  state.viewOnce = !state.viewOnce;
+  viewOnceBtn.classList.toggle('active', state.viewOnce);
+  viewOnceBtn.setAttribute('aria-pressed', String(state.viewOnce));
 });
 
 // ── Attachment picker ─────────────────────────────────────────────────────────
