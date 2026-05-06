@@ -25,11 +25,20 @@ public class ChatMessage {
     @JoinColumn(name = "conversation_id", nullable = false)
     private Conversation conversation;
 
-    @Column(nullable = false, length = 2000)
+    @Column(length = 2000)
     private String content;
 
     @Column(nullable = false, length = 120)
     private String sender;
+
+    @Column(length = 120)
+    private String senderName;
+
+    @Column(length = 512)
+    private String attachmentUrl;
+
+    @Column(length = 20)
+    private String attachmentType;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -69,6 +78,30 @@ public class ChatMessage {
 
     public void setSender(String sender) {
         this.sender = sender;
+    }
+
+    public String getSenderName() {
+        return senderName;
+    }
+
+    public void setSenderName(String senderName) {
+        this.senderName = senderName;
+    }
+
+    public String getAttachmentUrl() {
+        return attachmentUrl;
+    }
+
+    public void setAttachmentUrl(String attachmentUrl) {
+        this.attachmentUrl = attachmentUrl;
+    }
+
+    public String getAttachmentType() {
+        return attachmentType;
+    }
+
+    public void setAttachmentType(String attachmentType) {
+        this.attachmentType = attachmentType;
     }
 
     public Instant getCreatedAt() {
