@@ -668,3 +668,10 @@ button:hover {
   cursor: zoom-out;
   object-fit: contain;
 }
+
+.view-once-countdown {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+  font-style: italic;
+}

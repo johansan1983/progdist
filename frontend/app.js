@@ -299,22 +299,14 @@ function appendMessage(message, isOptimistic = false) {
   const status = isOptimistic ? " (enviando...)" : "";
   meta.textContent = `${resolveDisplayName(message)} ${created}${status}`.trim();
 
-  // View-once expired tombstone
-  if (message.viewOnceExpired) {
-    const tombstone = document.createElement("div");
-    tombstone.className = "msg-view-once-expired";
-    tombstone.textContent = "🔥 Mensaje visto — ya no está disponible";
-    item.append(meta, tombstone);
-    messagesEl.appendChild(item);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-    return;
-  }
+  // View-once expired — skip entirely (message was already seen by recipient)
+  if (message.viewOnceExpired) return;
 
   const content = document.createElement("div");
   content.textContent = message.content || "";
 
-  // View-once badge for fresh view-once messages
-  if (message.viewOnce && !message.viewOnceExpired) {
+  // View-once badge
+  if (message.viewOnce) {
     const badge = document.createElement("span");
     badge.className = "view-once-badge";
     badge.textContent = "🔥";
@@ -348,6 +340,27 @@ function appendMessage(message, isOptimistic = false) {
 
   messagesEl.appendChild(item);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  // Auto-remove view-once messages for the recipient after 5 seconds
+  if (message.viewOnce && message.sender !== state.username && !isOptimistic) {
+    const countdown = document.createElement('div');
+    countdown.className = 'view-once-countdown';
+    let secs = 5;
+    countdown.textContent = `🔥 Desaparecerá en ${secs}s`;
+    item.appendChild(countdown);
+
+    const timer = setInterval(() => {
+      secs--;
+      if (secs <= 0) {
+        clearInterval(timer);
+        item.style.transition = 'opacity 0.6s';
+        item.style.opacity = '0';
+        setTimeout(() => item.remove(), 600);
+      } else {
+        countdown.textContent = `🔥 Desaparecerá en ${secs}s`;
+      }
+    }, 1000);
+  }
 }
 
 function scrollMessagesToBottom() {
