@@ -41,6 +41,7 @@ const state = {
   isLoadingMessages: false,
   optimisticMessages: new Map(),
   presenceInterval: null,
+  pendingAttachment: null, // { file, uploadUrl, publicUrl, attachmentType }
 };
 
 // ── Token management ─────────────────────────────────────────────────────────
@@ -286,6 +287,29 @@ function appendMessage(message, isOptimistic = false) {
   content.textContent = message.content || "";
 
   item.append(meta, content);
+
+  if (message.attachmentType === 'IMAGE' && message.attachmentUrl) {
+    const img = document.createElement('img');
+    img.src = message.attachmentUrl;
+    img.className = 'msg-image';
+    img.loading = 'lazy';
+    item.appendChild(img);
+  } else if (message.attachmentType === 'AUDIO' && message.attachmentUrl) {
+    const audio = document.createElement('audio');
+    audio.src = message.attachmentUrl;
+    audio.controls = true;
+    audio.className = 'msg-audio';
+    item.appendChild(audio);
+  } else if (message.attachmentType === 'FILE' && message.attachmentUrl) {
+    const link = document.createElement('a');
+    link.href = message.attachmentUrl;
+    link.textContent = '📎 Descargar archivo';
+    link.className = 'msg-file';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    item.appendChild(link);
+  }
+
   messagesEl.appendChild(item);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
@@ -480,10 +504,36 @@ loginForm.addEventListener("submit", async event => {
 messageForm.addEventListener("submit", async event => {
   event.preventDefault();
   const content = messageInputEl.value.trim();
-  if (!content) return;
+  if (!content && !state.pendingAttachment) return;
+
+  const attachmentPreview = document.getElementById('attachmentPreview');
+  const fileInput = document.getElementById('fileInput');
+
+  let attachmentUrl = '';
+  let attachmentType = '';
+  if (state.pendingAttachment) {
+    const { file, uploadUrl, publicUrl, attachmentType: aType } = state.pendingAttachment;
+    try {
+      const putResp = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+      if (!putResp.ok) throw new Error('Upload failed: ' + putResp.status);
+      attachmentUrl = publicUrl;
+      attachmentType = aType;
+    } catch (e) {
+      alert('Error al subir el archivo: ' + e.message);
+      return;
+    }
+    state.pendingAttachment = null;
+    attachmentPreview.classList.add('hidden');
+    attachmentPreview.innerHTML = '';
+    fileInput.value = '';
+  }
 
   const optimisticId = `temp-${Date.now()}`;
-  appendMessage({ optimisticId, sender: state.username, senderName: state.displayName, content, createdAt: new Date().toISOString() }, true);
+  appendMessage({ optimisticId, sender: state.username, senderName: state.displayName, content, attachmentUrl, attachmentType, createdAt: new Date().toISOString() }, true);
   state.optimisticMessages.set(optimisticId, true);
   messageInputEl.value = "";
 
@@ -491,7 +541,7 @@ messageForm.addEventListener("submit", async event => {
     sendTypingEvent(false);
     await api("/api/chat/messages", {
       method: "POST",
-      body: JSON.stringify({ conversationId: state.conversationId, content }),
+      body: JSON.stringify({ conversationId: state.conversationId, content, attachmentUrl, attachmentType }),
     });
     state.optimisticMessages.delete(optimisticId);
     const confirmedEl = document.getElementById(`msg-${optimisticId}`);
@@ -541,6 +591,73 @@ emojiPickerContainer.appendChild(picker);
 document.getElementById('emojiBtn').addEventListener('click', (e) => {
   e.stopPropagation();
   emojiPickerContainer.classList.toggle('hidden');
+});
+
+// ── Attachment picker ─────────────────────────────────────────────────────────
+
+const attachBtn = document.getElementById('attachBtn');
+const fileInput = document.getElementById('fileInput');
+const attachmentPreview = document.getElementById('attachmentPreview');
+
+attachBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  if (file.size > 50 * 1024 * 1024) {
+    alert('El archivo no puede superar 50 MB.');
+    fileInput.value = '';
+    return;
+  }
+
+  const contentType = file.type || 'application/octet-stream';
+  try {
+    // Auto-refresh token before expiry
+    if (state.token && Date.now() > state.tokenExpiresAt) {
+      const ok = await refreshAccessToken();
+      if (!ok) { logout(); return; }
+    }
+    const presignResp = await fetch('/api/chat/attachments/presign', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`,
+      },
+      body: JSON.stringify({ filename: file.name, contentType, conversationId: state.conversationId }),
+    });
+    if (!presignResp.ok) throw new Error(await presignResp.text());
+    const data = await presignResp.json();
+
+    state.pendingAttachment = { file, uploadUrl: data.uploadUrl, publicUrl: data.publicUrl, attachmentType: data.attachmentType };
+
+    attachmentPreview.innerHTML = '';
+    attachmentPreview.classList.remove('hidden');
+
+    if (data.attachmentType === 'IMAGE') {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      attachmentPreview.appendChild(img);
+    } else {
+      const label = document.createElement('span');
+      label.textContent = `📎 ${file.name}`;
+      attachmentPreview.appendChild(label);
+    }
+
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '✕';
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-attachment';
+    removeBtn.onclick = () => {
+      state.pendingAttachment = null;
+      attachmentPreview.classList.add('hidden');
+      attachmentPreview.innerHTML = '';
+      fileInput.value = '';
+    };
+    attachmentPreview.appendChild(removeBtn);
+  } catch (e) {
+    alert('Error al preparar el adjunto: ' + e.message);
+    fileInput.value = '';
+  }
 });
 
 document.addEventListener('click', (e) => {
