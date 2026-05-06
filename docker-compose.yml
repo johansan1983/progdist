@@ -90,6 +90,26 @@ services:
       retries: 15
       start_period: 90s
 
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: superchat
+      MINIO_ROOT_PASSWORD: superchat123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
   # ── Spring Cloud Platform ───────────────────────────────────────────────────
 
   config-server:
@@ -156,6 +176,11 @@ services:
       SPRING_RABBITMQ_PASSWORD: superchat123
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      MINIO_URL: http://minio:9000
+      MINIO_EXTERNAL_URL: http://localhost:9000
+      MINIO_ACCESS_KEY: superchat
+      MINIO_SECRET_KEY: superchat123
+      MINIO_BUCKET: superchat-attachments
     depends_on:
       config-server:
         condition: service_healthy
@@ -164,6 +189,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health || exit 1"]
@@ -184,6 +211,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/users
       SPRING_DATASOURCE_USERNAME: superchat
       SPRING_DATASOURCE_PASSWORD: superchat123
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/superchat/protocol/openid-connect/certs
     depends_on:
       config-server:
         condition: service_healthy
@@ -276,3 +304,4 @@ volumes:
   redis_data:
   prometheus_data:
   grafana_data:
+  minio_data:
