@@ -158,6 +158,18 @@ public class ChatService {
         }).toList();
     }
 
+    @Transactional(readOnly = true)
+    public void assertDmAccess(Long conversationId, String userId) {
+        Conversation conv = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found"));
+        if ("DIRECT".equals(conv.getType())) {
+            boolean isParticipant = userId.equals(conv.getDmParticipantA()) || userId.equals(conv.getDmParticipantB());
+            if (!isParticipant) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a participant of this conversation");
+            }
+        }
+    }
+
     @Transactional
     public List<Map<String, Object>> listMessages(Long conversationId, int page, int size, String currentUserId) {
         int safePage = Math.max(0, page);

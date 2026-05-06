@@ -7,6 +7,7 @@ import com.superchat.chat.domain.ChatMessage;
 import com.superchat.chat.domain.Conversation;
 import com.superchat.chat.service.ChatService;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/chat")
@@ -49,6 +51,34 @@ public class ChatController {
         ));
     }
 
+    @GetMapping("/conversations")
+    public ResponseEntity<List<Map<String, Object>>> listConversations(Authentication authentication) {
+        String userId = authentication.getName();
+        return ResponseEntity.ok(chatService.listConversationsForUser(userId));
+    }
+
+    @PostMapping("/conversations/dm")
+    public ResponseEntity<Map<String, Object>> createDm(
+            Authentication authentication,
+            @RequestBody DmRequest request
+    ) {
+        if (request.participantId() == null || request.participantId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "participantId is required");
+        }
+        String myId = authentication.getName();
+        String myName = preferredUsername(authentication);
+        Conversation dm = chatService.createDm(myId, myName, request.participantId(),
+                request.participantName() != null ? request.participantName() : request.participantId());
+        boolean iAmA = myId.equals(dm.getDmParticipantA());
+        return ResponseEntity.ok(Map.of(
+                "id", dm.getId(),
+                "type", dm.getType(),
+                "otherParticipantName", iAmA ? dm.getDmParticipantBName() : dm.getDmParticipantAName(),
+                "otherParticipantId", iAmA ? dm.getDmParticipantB() : dm.getDmParticipantA(),
+                "createdAt", dm.getCreatedAt().toString()
+        ));
+    }
+
     private static String preferredUsername(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwtToken) {
             Object claim = jwtToken.getToken().getClaims().get("preferred_username");
@@ -64,6 +94,7 @@ public class ChatController {
     ) {
         String sender = authentication.getName();
         String senderName = preferredUsername(authentication);
+        chatService.assertDmAccess(request.conversationId(), authentication.getName());
         ChatMessage saved = chatService.sendMessage(
                 request.conversationId(), request.content(), sender, senderName,
                 request.attachmentUrl(), request.attachmentType(), request.viewOnce());
@@ -89,6 +120,7 @@ public class ChatController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "50") int size
     ) {
+        chatService.assertDmAccess(conversationId, authentication.getName());
         String currentUserId = authentication.getName();
         List<Map<String, Object>> messages = chatService.listMessages(conversationId, page, size, currentUserId);
 
@@ -101,4 +133,5 @@ public class ChatController {
 
     public record CreateConversationRequest(String name) {}
     public record MessageRequest(Long conversationId, String content, String attachmentUrl, String attachmentType, boolean viewOnce) {}
+    public record DmRequest(String participantId, String participantName) {}
 }
