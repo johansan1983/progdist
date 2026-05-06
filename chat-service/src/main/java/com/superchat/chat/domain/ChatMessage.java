@@ -40,6 +40,12 @@ public class ChatMessage {
     @Column(length = 20)
     private String attachmentType;
 
+    @Column(nullable = false)
+    private boolean viewOnce = false;
+
+    @Column(nullable = false)
+    private boolean viewed = false;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -103,6 +109,11 @@ public class ChatMessage {
     public void setAttachmentType(String attachmentType) {
         this.attachmentType = attachmentType;
     }
+
+    public boolean isViewOnce() { return viewOnce; }
+    public void setViewOnce(boolean viewOnce) { this.viewOnce = viewOnce; }
+    public boolean isViewed() { return viewed; }
+    public void setViewed(boolean viewed) { this.viewed = viewed; }
 
     public Instant getCreatedAt() {
         return createdAt;
