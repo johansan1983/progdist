@@ -122,6 +122,9 @@ public class ChatService {
 
     @Transactional
     public Conversation createDm(String myId, String myName, String participantId, String participantName) {
+        if (myId == null || myId.isBlank() || participantId == null || participantId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User IDs are required");
+        }
         if (myId.equals(participantId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot create DM with yourself");
         }
