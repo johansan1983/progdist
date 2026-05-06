@@ -88,18 +88,21 @@ label {
   color: var(--muted);
 }
 
-input {
+input,
+textarea {
   width: 100%;
   margin-top: 0.35rem;
   border: 1px solid var(--edge);
   border-radius: 12px;
   padding: 0.78rem 0.88rem;
   font-size: 0.95rem;
+  font-family: "Manrope", sans-serif;
   outline: none;
   transition: border-color 160ms ease;
 }
 
-input:focus {
+input:focus,
+textarea:focus {
   border-color: var(--accent);
 }
 
