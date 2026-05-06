@@ -12,20 +12,24 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 class RedisPresenceServiceTest {
 
     private PresenceService presenceService;
     private RedisTemplate<String, String> redisTemplateMock;
     private ValueOperations<String, String> valueOpsMock;
+    private SimpMessagingTemplate messagingTemplateMock;
 
     @BeforeEach
     void setUp() {
         redisTemplateMock = mock(RedisTemplate.class);
         valueOpsMock = mock(ValueOperations.class);
+        messagingTemplateMock = mock(SimpMessagingTemplate.class);
         when(redisTemplateMock.opsForValue()).thenReturn(valueOpsMock);
+        when(redisTemplateMock.keys(anyString())).thenReturn(Set.of());
 
-        presenceService = new PresenceService(redisTemplateMock);
+        presenceService = new PresenceService(redisTemplateMock, messagingTemplateMock);
     }
 
     @Test

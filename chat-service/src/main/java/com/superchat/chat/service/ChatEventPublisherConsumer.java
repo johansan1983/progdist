@@ -22,6 +22,7 @@ public class ChatEventPublisherConsumer {
             return;
         }
 
-        messagingTemplate.convertAndSend("/topic/conversations/" + conversationId, event);
+        // RabbitMQ STOMP rejects '/' in routing keys; use '.' as separator
+        messagingTemplate.convertAndSend("/topic/conversations." + conversationId, event);
     }
 }

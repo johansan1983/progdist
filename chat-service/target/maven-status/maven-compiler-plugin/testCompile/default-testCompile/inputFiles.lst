@@ -1,0 +1,5 @@
+/home/userapp/progdist/chat-service/src/test/java/com/superchat/chat/service/AttachmentServiceTest.java
+/home/userapp/progdist/chat-service/src/test/java/com/superchat/chat/service/ChatServiceTest.java
+/home/userapp/progdist/chat-service/src/test/java/com/superchat/chat/service/ChatServiceViewOnceTest.java
+/home/userapp/progdist/chat-service/src/test/java/com/superchat/chat/service/ConversationDmServiceTest.java
+/home/userapp/progdist/chat-service/src/test/java/com/superchat/chat/service/RedisPresenceServiceTest.java

@@ -29,8 +29,8 @@ public class PresenceChannelInterceptor implements ChannelInterceptor {
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             String username = accessor.getFirstNativeHeader("username");
-            String alias = accessor.getFirstNativeHeader("alias");
-            presenceService.registerSession(accessor.getSessionId(), username, alias);
+            String displayName = accessor.getFirstNativeHeader("displayName");
+            presenceService.registerSession(accessor.getSessionId(), username, displayName);
         }
 
         if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {

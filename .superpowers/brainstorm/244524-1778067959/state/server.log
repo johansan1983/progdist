@@ -1,0 +1,9 @@
+{"type":"server-started","port":49833,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:49833","screen_dir":"/home/userapp/progdist/.superpowers/brainstorm/244524-1778067959/content","state_dir":"/home/userapp/progdist/.superpowers/brainstorm/244524-1778067959/state"}
+{"type":"screen-added","file":"/home/userapp/progdist/.superpowers/brainstorm/244524-1778067959/content/feature-priority.html"}
+{"source":"user-event","type":"click","text":"A\n    \n      😊 Emoji Picker\n      Click-to-insert emoji panel in the message composer. Low effort, high polish.","choice":"emoji","id":null,"timestamp":1778068006076}
+{"source":"user-event","type":"click","text":"B\n    \n      ✅ Spellchecking\n      Browser-native spell check on the message input — essentially a one-liner in HTML.","choice":"spellcheck","id":null,"timestamp":1778068007430}
+{"source":"user-event","type":"click","text":"C\n    \n      📎 File / Image / Audio Attachments\n      Upload files in a message. Needs file storage (S3-compatible) and new DB fields. Medium effort.","choice":"attachments","id":null,"timestamp":1778068009090}
+{"source":"user-event","type":"click","text":"D\n    \n      🔥 View-Once Messages\n      Messages or images that disappear after being read once. Depends on attachments being done first.","choice":"viewonce","id":null,"timestamp":1778068009449}
+{"source":"user-event","type":"click","text":"E\n    \n      💬 Direct Messaging (1-on-1)\n      Private conversations between two users. Needs routing, UI panel, and new conversation type. Medium effort.","choice":"dm","id":null,"timestamp":1778068010278}
+{"type":"screen-added","file":"/home/userapp/progdist/.superpowers/brainstorm/244524-1778067959/content/waiting-1.html"}
+{"type":"server-stopped","reason":"idle timeout"}

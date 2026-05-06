@@ -1,0 +1,5 @@
+com/superchat/chat/service/ConversationDmServiceTest.class
+com/superchat/chat/service/RedisPresenceServiceTest.class
+com/superchat/chat/service/AttachmentServiceTest.class
+com/superchat/chat/service/ChatServiceTest.class
+com/superchat/chat/service/ChatServiceViewOnceTest.class
