@@ -1,9 +1,12 @@
 package com.superchat.chat.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -11,26 +14,23 @@ public class PresenceService {
 
     private static final String PRESENCE_KEY_PREFIX = "presence:";
     private final RedisTemplate<String, String> redisTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public PresenceService(RedisTemplate<String, String> redisTemplate) {
+    public PresenceService(RedisTemplate<String, String> redisTemplate,
+                           @Lazy SimpMessagingTemplate messagingTemplate) {
         this.redisTemplate = redisTemplate;
+        this.messagingTemplate = messagingTemplate;
     }
 
-    public void registerSession(String sessionId, String username, String alias) {
+    public void registerSession(String sessionId, String username, String displayName) {
         if (sessionId == null || username == null || username.isBlank()) {
             return;
         }
-        String trimmedUsername = username.trim();
-        String value;
-        if (alias != null && !alias.isBlank()) {
-            // store as username||alias to preserve backward compatibility
-            value = trimmedUsername + "||" + alias.trim();
-        } else {
-            value = trimmedUsername;
-        }
+        String value = (displayName != null && !displayName.isBlank()) ? displayName.trim() : username.trim();
         String key = getPresenceKey(sessionId);
         redisTemplate.opsForValue().set(key, value);
         redisTemplate.expire(key, java.time.Duration.ofHours(1));
+        pushSnapshot();
     }
 
     public void unregisterSession(String sessionId) {
@@ -38,6 +38,7 @@ public class PresenceService {
             return;
         }
         redisTemplate.delete(getPresenceKey(sessionId));
+        pushSnapshot();
     }
 
     public PresenceSnapshot snapshot() {
@@ -50,24 +51,17 @@ public class PresenceService {
                 .map(key -> redisTemplate.opsForValue().get(key))
                 .filter(name -> name != null && !name.isBlank())
                 .map(String::trim)
-                .map(raw -> {
-                    // support stored formats: "username" or "username||alias"
-                    if (raw.contains("||")) {
-                        String[] parts = raw.split("\\|\\|", 2);
-                        String username = parts[0].trim();
-                        String alias = parts.length > 1 ? parts[1].trim() : "";
-                        if (!alias.isBlank()) {
-                            return alias + " (" + username + ")";
-                        }
-                        return username;
-                    }
-                    return raw;
-                })
                 .distinct()
                 .sorted(String.CASE_INSENSITIVE_ORDER)
                 .toList();
 
         return new PresenceSnapshot(users.size(), users);
+    }
+
+    private void pushSnapshot() {
+        PresenceSnapshot snap = snapshot();
+        messagingTemplate.convertAndSend("/topic/presence",
+                Map.of("connectedCount", snap.connectedCount(), "users", snap.users()));
     }
 
     private String getPresenceKey(String sessionId) {

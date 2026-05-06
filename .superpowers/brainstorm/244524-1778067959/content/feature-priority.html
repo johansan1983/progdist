@@ -1,0 +1,49 @@
+<h2>Which features matter most to you?</h2>
+<p class="subtitle">Select all the features you want — then we'll decide what to build first. Click to toggle.</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="emoji" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>😊 Emoji Picker</h3>
+      <p>Click-to-insert emoji panel in the message composer. Low effort, high polish.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="spellcheck" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>✅ Spellchecking</h3>
+      <p>Browser-native spell check on the message input — essentially a one-liner in HTML.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="attachments" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>📎 File / Image / Audio Attachments</h3>
+      <p>Upload files in a message. Needs file storage (S3-compatible) and new DB fields. Medium effort.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="viewonce" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>🔥 View-Once Messages</h3>
+      <p>Messages or images that disappear after being read once. Depends on attachments being done first.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="dm" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>💬 Direct Messaging (1-on-1)</h3>
+      <p>Private conversations between two users. Needs routing, UI panel, and new conversation type. Medium effort.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="video" onclick="toggleSelect(this)">
+    <div class="letter">F</div>
+    <div class="content">
+      <h3>📹 Video Call Room</h3>
+      <p>Real-time video/audio via WebRTC. High complexity — signaling server, TURN/STUN, peer connections.</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:1.5rem">Select all you want, then tell me which one you'd like to start with in the terminal.</p>

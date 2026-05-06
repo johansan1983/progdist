@@ -31,7 +31,7 @@ public class TypingController {
                 "createdAt", Instant.now().toString()
         );
 
-        messagingTemplate.convertAndSend("/topic/conversations/" + event.conversationId() + "/typing", payload);
+        messagingTemplate.convertAndSend("/topic/conversations." + event.conversationId() + ".typing", payload);
     }
 
     public record TypingEvent(Long conversationId, String username, boolean typing) {

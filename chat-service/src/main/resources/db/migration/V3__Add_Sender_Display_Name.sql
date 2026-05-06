@@ -1,0 +1,1 @@
+ALTER TABLE chat_message ADD COLUMN IF NOT EXISTS sender_name VARCHAR(120);
