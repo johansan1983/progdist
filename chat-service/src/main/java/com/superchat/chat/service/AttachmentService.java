@@ -33,19 +33,13 @@ public class AttachmentService {
     public PresignResult presign(String filename, String contentType, Long conversationId) throws Exception {
         String objectKey = conversationId + "/" + UUID.randomUUID() + "/" + filename;
 
-        // Generate using the internal client (reachable inside Docker), then swap the host
-        // to the external URL so the browser can reach MinIO directly.
-        String internalUrl = internalClient.getPresignedObjectUrl(
+        String uploadUrl = externalClient.getPresignedObjectUrl(
                 GetPresignedObjectUrlArgs.builder()
                         .method(Method.PUT)
                         .bucket(bucket)
                         .object(objectKey)
                         .expiry(15, TimeUnit.MINUTES)
                         .build()
-        );
-
-        String uploadUrl = internalUrl.replaceFirst(
-                "^(https?://)[^/?#]+(.*)", "$1" + externalUrl.replaceFirst("^https?://", "") + "$2"
         );
 
         String publicUrl = externalUrl + "/" + bucket + "/" + objectKey;
