@@ -22,11 +22,18 @@ public class UserProfileService {
     }
 
     @Transactional
-    public UserProfile getOrCreateProfile(String keycloakId) {
-        return repository.findByKeycloakId(keycloakId).orElseGet(() -> {
+    public UserProfile getOrCreateProfile(String keycloakId, String preferredUsername) {
+        return repository.findByKeycloakId(keycloakId).map(profile -> {
+            // Auto-fix profiles where displayName was set to the keycloakId placeholder
+            if (profile.getDisplayName() == null || profile.getDisplayName().equals(keycloakId)) {
+                profile.setDisplayName(preferredUsername);
+                return repository.save(profile);
+            }
+            return profile;
+        }).orElseGet(() -> {
             UserProfile profile = new UserProfile();
             profile.setKeycloakId(keycloakId);
-            profile.setDisplayName(keycloakId);
+            profile.setDisplayName(preferredUsername);
             profile.setStatus(OnlineStatus.ONLINE);
             return repository.save(profile);
         });
