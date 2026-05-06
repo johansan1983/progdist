@@ -5,6 +5,7 @@ import com.superchat.user.domain.UserProfile;
 import com.superchat.user.service.UserProfileService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,8 +24,16 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> getMyProfile(Authentication authentication) {
-        UserProfile profile = service.getOrCreateProfile(authentication.getName());
+        UserProfile profile = service.getOrCreateProfile(authentication.getName(), preferredUsername(authentication));
         return ResponseEntity.ok(toMap(profile));
+    }
+
+    private static String preferredUsername(Authentication authentication) {
+        if (authentication instanceof JwtAuthenticationToken jwt) {
+            Object claim = jwt.getToken().getClaims().get("preferred_username");
+            if (claim instanceof String s && !s.isBlank()) return s;
+        }
+        return authentication.getName();
     }
 
     @PutMapping("/me")
