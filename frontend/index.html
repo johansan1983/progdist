@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SuperChat MVP</title>
+    <title>SuperChat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
@@ -16,19 +16,15 @@
     <main class="app-shell">
       <section class="panel panel-auth" id="authPanel">
         <h1>SuperChat</h1>
-        <p class="subtitle">MVP microservicios en tiempo real</p>
+        <p class="subtitle">Plataforma corporativa de mensajería</p>
         <form id="loginForm" class="stack">
           <label>
-            Usuario o teléfono
-            <input id="phone" type="text" placeholder="demo o +34123456789" autocomplete="username" required />
+            Usuario
+            <input id="phone" type="text" placeholder="alice" autocomplete="username" required />
           </label>
           <label>
-            Alias (mostrar)
-            <input id="alias" type="text" placeholder="Alice" />
-          </label>
-          <label>
-            Password
-            <input id="password" type="password" placeholder="demo" required />
+            Contraseña
+            <input id="password" type="password" placeholder="••••••••" required />
           </label>
           <button type="submit">Entrar</button>
         </form>
@@ -46,14 +42,14 @@
               <span id="socketDot" class="dot offline"></span>
               <span id="socketText">desconectado</span>
             </div>
-            <button id="logoutBtn" type="button" class="btn-ghost">Cerrar sesion</button>
+            <button id="logoutBtn" type="button" class="btn-ghost">Cerrar sesión</button>
           </div>
         </header>
 
         <div class="chat-layout">
           <section class="chat-main">
             <section class="sim-panel" aria-label="Simulacion RabbitMQ">
-              <div class="sim-title">Simulacion de falla</div>
+              <div class="sim-title">Simulación de falla</div>
               <div class="sim-actions">
                 <button id="simulateFailBtn" type="button" class="btn-ghost">Fallar publicador</button>
                 <button id="simulateRestoreBtn" type="button" class="btn-ghost">Restablecer publicador</button>
@@ -62,7 +58,7 @@
             </section>
 
             <div class="load-more-container">
-              <button id="loadMoreBtn" type="button" class="btn-secondary hidden">Cargar mas mensajes</button>
+              <button id="loadMoreBtn" type="button" class="btn-secondary hidden">Cargar más mensajes</button>
               <span id="loadMoreStatus" class="load-status"></span>
             </div>
 

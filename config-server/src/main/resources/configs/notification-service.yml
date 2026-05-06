@@ -1,0 +1,43 @@
+server:
+  port: 8084
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://keycloak:8080/realms/superchat/protocol/openid-connect/certs
+  threads:
+    virtual:
+      enabled: true
+
+notifications:
+  rabbit:
+    exchange: notifications.exchange
+    queue: notifications.queue
+    routing-key: notifications.message.created
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /docs
+
+logging:
+  structured:
+    format:
+      console: ecs

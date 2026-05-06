@@ -33,7 +33,15 @@ class ChatServiceTest {
         conversationRepository = mock(ConversationRepository.class);
         rabbitTemplate = mock(RabbitTemplate.class);
 
-        chatService = new ChatService(conversationRepository, messageRepository, rabbitTemplate, "chat.exchange", "chat.routing.key");
+        chatService = new ChatService(
+                conversationRepository,
+                messageRepository,
+                rabbitTemplate,
+                "chat.exchange",
+                "chat.routing.key",
+                "notifications.exchange",
+                "notifications.message.created"
+        );
     }
 
     @Test

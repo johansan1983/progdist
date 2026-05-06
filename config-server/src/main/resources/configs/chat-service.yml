@@ -1,0 +1,39 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://keycloak:8080/realms/superchat/protocol/openid-connect/certs
+  threads:
+    virtual:
+      enabled: true
+
+chat:
+  rabbit:
+    stomp:
+      host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+      port: 61613
+      username: ${SPRING_RABBITMQ_USERNAME:superchat}
+      password: ${SPRING_RABBITMQ_PASSWORD:superchat123}
+  notifications:
+    exchange: notifications.exchange
+    routing-key: notifications.message.created
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: ecs
