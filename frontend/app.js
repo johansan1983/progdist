@@ -43,6 +43,8 @@ const state = {
   isLoadingMessages: false,
   optimisticMessages: new Map(),
   presenceInterval: null,
+  msgSub: null,
+  typingSub: null,
   pendingAttachment: null, // { file, uploadUrl, publicUrl, attachmentType }
   presignInProgress: false,
   viewOnce: false,
@@ -432,6 +434,9 @@ function renderConvList() {
 
 async function switchConversation(id, label) {
   state.activeConversationId = id;
+  if (state.stompClient?.connected) {
+    subscribeToConversation(id);
+  }
   const headerEl = document.querySelector('.chat-header h2');
   if (headerEl) headerEl.textContent = label || `Conversación #${id}`;
   const messagesEl = document.getElementById('messages');
@@ -485,7 +490,7 @@ function scheduleStopTyping() {
 }
 
 function handleTypingEvent(event) {
-  if (!event || event.conversationId !== state.conversationId || !event.username || event.username === state.username) return;
+  if (!event || event.conversationId !== (state.activeConversationId ?? state.conversationId) || !event.username || event.username === state.username) return;
   if (!event.typing) {
     const id = state.remoteTypingTimers.get(event.username);
     if (id) { clearTimeout(id); state.remoteTypingTimers.delete(event.username); }
@@ -507,6 +512,17 @@ function handleTypingEvent(event) {
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 
+function subscribeToConversation(conversationId) {
+  state.msgSub?.unsubscribe();
+  state.typingSub?.unsubscribe();
+  state.msgSub = state.stompClient.subscribe(`/topic/conversations.${conversationId}`, frame => {
+    appendMessage(JSON.parse(frame.body));
+  });
+  state.typingSub = state.stompClient.subscribe(`/topic/conversations.${conversationId}.typing`, frame => {
+    handleTypingEvent(JSON.parse(frame.body));
+  });
+}
+
 function connectWebSocket() {
   disconnectWebSocket();
   clearRemoteTypingState();
@@ -521,12 +537,7 @@ function connectWebSocket() {
     reconnectDelay: 5000,
     onConnect: () => {
       setSocketStatus(true);
-      client.subscribe(`/topic/conversations.${state.conversationId}`, frame => {
-        appendMessage(JSON.parse(frame.body));
-      });
-      client.subscribe(`/topic/conversations.${state.conversationId}.typing`, frame => {
-        handleTypingEvent(JSON.parse(frame.body));
-      });
+      subscribeToConversation(state.activeConversationId ?? state.conversationId);
       client.subscribe(`/topic/presence`, frame => {
         const snapshot = JSON.parse(frame.body);
         renderPresence(snapshot.users || []);
@@ -849,7 +860,7 @@ async function startDm(participantId, participantName) {
     await loadConversations();
     await switchConversation(dm.id, `\u{1F4AC} ${dm.otherParticipantName || participantName}`);
   } catch (e) {
-    alert('Error al crear DM: ' + e.message);
+    alert('Error al crear DM: ' + (e?.message || String(e)));
   }
 }
 
