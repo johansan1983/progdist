@@ -546,6 +546,12 @@ messageForm.addEventListener("submit", async event => {
       attachmentType = aType;
     } catch (e) {
       alert('Error al subir el archivo: ' + e.message);
+      state.viewOnce = false;
+      const viewOnceBtn = document.getElementById('viewOnceBtn');
+      if (viewOnceBtn) {
+        viewOnceBtn.classList.remove('active');
+        viewOnceBtn.setAttribute('aria-pressed', 'false');
+      }
       return;
     }
     state.pendingAttachment = null;
