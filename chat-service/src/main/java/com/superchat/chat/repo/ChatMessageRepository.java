@@ -16,6 +16,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     @Modifying
     @Transactional
-    @Query("UPDATE ChatMessage m SET m.viewed = true WHERE m.id = :id")
-    void markViewed(@Param("id") Long id);
+    @Query("UPDATE ChatMessage m SET m.viewed = true WHERE m.id = :id AND m.viewed = false")
+    int markViewed(@Param("id") Long id);
 }
