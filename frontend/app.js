@@ -31,6 +31,8 @@ const state = {
   username: "",
   displayName: "",
   conversationId: 1,
+  activeConversationId: null,
+  conversations: [],
   stompClient: null,
   isTyping: false,
   typingStopTimer: null,
@@ -206,9 +208,19 @@ function renderPresence(users) {
     return;
   }
 
-  unique.forEach(user => {
+  unique.forEach(username => {
     const item = document.createElement("li");
-    item.textContent = user;
+    item.textContent = username;
+    item.style.cursor = 'pointer';
+    item.addEventListener('click', () => {
+      const dmModalEl = document.getElementById('dmModal');
+      const dmSearchEl = document.getElementById('dmSearch');
+      if (dmModalEl && dmSearchEl) {
+        dmModalEl.classList.remove('hidden');
+        dmSearchEl.value = username;
+        dmSearchEl.dispatchEvent(new Event('input'));
+      }
+    });
     presenceListEl.appendChild(item);
   });
 }
@@ -368,7 +380,8 @@ async function loadMoreMessages() {
   if (loadMoreStatusEl) loadMoreStatusEl.textContent = "Cargando...";
 
   try {
-    const data = await api(`/api/chat/conversations/${state.conversationId}/messages?page=${state.currentPage}&size=${PAGE_SIZE}`, { method: "GET" });
+    const convId = state.activeConversationId ?? state.conversationId;
+    const data = await api(`/api/chat/conversations/${convId}/messages?page=${state.currentPage}&size=${PAGE_SIZE}`, { method: "GET" });
     state.totalPages = data.totalPages || 1;
     if (data.messages) {
       data.messages.forEach(msg => appendMessage(msg, false));
@@ -384,6 +397,50 @@ async function loadMoreMessages() {
     if (loadMoreStatusEl) loadMoreStatusEl.textContent = "";
     scrollMessagesToBottom();
   }
+}
+
+// ── Conversations ─────────────────────────────────────────────────────────────
+
+async function loadConversations() {
+  try {
+    const list = await api("/api/chat/conversations", { method: "GET" });
+    state.conversations = Array.isArray(list) ? list : [];
+    renderConvList();
+  } catch (e) {
+    console.warn('Could not load conversations', e);
+  }
+}
+
+function renderConvList() {
+  const ul = document.getElementById('convList');
+  if (!ul) return;
+  ul.innerHTML = '';
+  state.conversations.forEach(conv => {
+    const li = document.createElement('li');
+    const label = conv.type === 'DIRECT'
+      ? `\u{1F4AC} ${conv.otherParticipantName || conv.id}`
+      : `\u{1F465} ${conv.name || conv.id}`;
+    li.textContent = label;
+    li.title = label;
+    li.dataset.id = String(conv.id);
+    const activeId = state.activeConversationId ?? state.conversationId;
+    if (conv.id === activeId) li.classList.add('active');
+    li.addEventListener('click', () => switchConversation(conv.id, label));
+    ul.appendChild(li);
+  });
+}
+
+async function switchConversation(id, label) {
+  state.activeConversationId = id;
+  const headerEl = document.querySelector('.chat-header h2');
+  if (headerEl) headerEl.textContent = label || `Conversación #${id}`;
+  const messagesEl = document.getElementById('messages');
+  if (messagesEl) messagesEl.innerHTML = '';
+  state.currentPage = 0;
+  state.totalPages = 0;
+  state.optimisticMessages.clear();
+  renderConvList();
+  await loadMoreMessages();
 }
 
 // ── Typing ────────────────────────────────────────────────────────────────────
@@ -412,7 +469,7 @@ function publishTyping(typing) {
   if (!state.stompClient?.connected || !state.username) return;
   state.stompClient.publish({
     destination: "/app/typing",
-    body: JSON.stringify({ conversationId: state.conversationId, username: state.username, typing }),
+    body: JSON.stringify({ conversationId: state.activeConversationId ?? state.conversationId, username: state.username, typing }),
   });
 }
 
@@ -514,6 +571,7 @@ loginForm.addEventListener("submit", async event => {
     setSessionInfo();
     setPanels(true);
     await loadHistory();
+    await loadConversations();
     await refreshSimulationStatus();
     connectWebSocket();
     saveSession();
@@ -578,7 +636,7 @@ messageForm.addEventListener("submit", async event => {
     sendTypingEvent(false);
     await api("/api/chat/messages", {
       method: "POST",
-      body: JSON.stringify({ conversationId: state.conversationId, content, attachmentUrl, attachmentType, viewOnce }),
+      body: JSON.stringify({ conversationId: state.activeConversationId ?? state.conversationId, content, attachmentUrl, attachmentType, viewOnce }),
     });
     state.optimisticMessages.delete(optimisticId);
     const confirmedEl = document.getElementById(`msg-${optimisticId}`);
@@ -671,7 +729,7 @@ fileInput.addEventListener('change', async () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${state.token}`,
       },
-      body: JSON.stringify({ filename: file.name, contentType, conversationId: state.conversationId }),
+      body: JSON.stringify({ filename: file.name, contentType, conversationId: state.activeConversationId ?? state.conversationId }),
     });
     if (!presignResp.ok) throw new Error(await presignResp.text());
     const data = await presignResp.json();
@@ -730,6 +788,71 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ── DM modal ──────────────────────────────────────────────────────────────────
+
+const newDmBtn = document.getElementById('newDmBtn');
+const dmModal = document.getElementById('dmModal');
+const closeDmModalBtn = document.getElementById('closeDmModal');
+const dmSearchInput = document.getElementById('dmSearch');
+const dmUserList = document.getElementById('dmUserList');
+
+if (newDmBtn) {
+  newDmBtn.addEventListener('click', () => {
+    dmModal.classList.remove('hidden');
+    dmSearchInput.value = '';
+    dmUserList.innerHTML = '';
+    dmSearchInput.focus();
+  });
+}
+
+if (closeDmModalBtn) {
+  closeDmModalBtn.addEventListener('click', () => dmModal.classList.add('hidden'));
+}
+
+if (dmModal) {
+  dmModal.addEventListener('click', (e) => {
+    if (e.target === dmModal) dmModal.classList.add('hidden');
+  });
+}
+
+let dmSearchTimer;
+if (dmSearchInput) {
+  dmSearchInput.addEventListener('input', () => {
+    clearTimeout(dmSearchTimer);
+    dmSearchTimer = setTimeout(async () => {
+      const q = dmSearchInput.value.trim();
+      if (!q) { dmUserList.innerHTML = ''; return; }
+      try {
+        const users = await api('/api/users/search?q=' + encodeURIComponent(q), { method: 'GET' });
+        dmUserList.innerHTML = '';
+        (Array.isArray(users) ? users : []).forEach(u => {
+          const li = document.createElement('li');
+          li.textContent = u.displayName || u.keycloakId;
+          li.addEventListener('click', () => startDm(u.keycloakId, u.displayName));
+          dmUserList.appendChild(li);
+        });
+      } catch (e) {
+        console.warn('User search failed', e);
+      }
+    }, 300);
+  });
+}
+
+async function startDm(participantId, participantName) {
+  if (dmModal) dmModal.classList.add('hidden');
+  try {
+    const dm = await api('/api/chat/conversations/dm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ participantId, participantName }),
+    });
+    await loadConversations();
+    await switchConversation(dm.id, `\u{1F4AC} ${dm.otherParticipantName || participantName}`);
+  } catch (e) {
+    alert('Error al crear DM: ' + e.message);
+  }
+}
+
 // ── Session restore ───────────────────────────────────────────────────────────
 
 async function restoreSession() {
@@ -759,6 +882,7 @@ async function restoreSession() {
     setSessionInfo();
     setPanels(true);
     await loadHistory();
+    await loadConversations();
     await refreshSimulationStatus();
     connectWebSocket();
     saveSession();
