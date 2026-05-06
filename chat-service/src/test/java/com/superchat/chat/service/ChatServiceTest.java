@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,20 +55,26 @@ class ChatServiceTest {
         msg1.setContent("Hello");
         msg1.setCreatedAt(Instant.now());
 
+        Conversation conv = new Conversation();
+        conv.setId(conversationId);
+        conv.setName("test");
+        msg1.setConversation(conv);
+
         ChatMessage msg2 = new ChatMessage();
         msg2.setId(2L);
         msg2.setSender("user2");
         msg2.setContent("Hi there");
         msg2.setCreatedAt(Instant.now());
+        msg2.setConversation(conv);
 
         Page<ChatMessage> page = new PageImpl<>(java.util.List.of(msg1, msg2));
         when(messageRepository.findByConversationId(eq(conversationId), any(Pageable.class))).thenReturn(page);
 
-        Page<ChatMessage> result = chatService.listMessages(conversationId, 0, 50);
+        List<Map<String, Object>> result = chatService.listMessages(conversationId, 0, 50, "any-user");
 
-        assertEquals(2, result.getContent().size());
-        assertEquals("user1", result.getContent().get(0).getSender());
-        assertEquals("user2", result.getContent().get(1).getSender());
+        assertEquals(2, result.size());
+        assertEquals("user1", result.get(0).get("sender"));
+        assertEquals("user2", result.get(1).get("sender"));
     }
 
     @Test
@@ -75,7 +83,7 @@ class ChatServiceTest {
         Page<ChatMessage> emptyPage = new PageImpl<>(java.util.List.of());
         when(messageRepository.findByConversationId(eq(conversationId), any(Pageable.class))).thenReturn(emptyPage);
 
-        chatService.listMessages(conversationId, 0, 500);
+        chatService.listMessages(conversationId, 0, 500, "any-user");
 
         verify(messageRepository).findByConversationId(eq(conversationId), argThat(p -> p.getPageSize() == 200));
     }
@@ -86,7 +94,7 @@ class ChatServiceTest {
         Page<ChatMessage> emptyPage = new PageImpl<>(java.util.List.of());
         when(messageRepository.findByConversationId(eq(conversationId), any(Pageable.class))).thenReturn(emptyPage);
 
-        chatService.listMessages(conversationId, -5, 50);
+        chatService.listMessages(conversationId, -5, 50, "any-user");
 
         verify(messageRepository).findByConversationId(eq(conversationId), argThat(p -> p.getPageNumber() == 0));
     }
@@ -97,7 +105,7 @@ class ChatServiceTest {
         Page<ChatMessage> emptyPage = new PageImpl<>(java.util.List.of());
         when(messageRepository.findByConversationId(eq(conversationId), any(Pageable.class))).thenReturn(emptyPage);
 
-        chatService.listMessages(conversationId, 0, 50);
+        chatService.listMessages(conversationId, 0, 50, "any-user");
 
         verify(messageRepository).findByConversationId(eq(conversationId), argThat(p -> p.getPageSize() == 50));
     }

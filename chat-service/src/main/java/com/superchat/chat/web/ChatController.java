@@ -1,6 +1,5 @@
 package com.superchat.chat.web;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -8,7 +7,6 @@ import com.superchat.chat.domain.ChatMessage;
 import com.superchat.chat.domain.Conversation;
 import com.superchat.chat.service.ChatService;
 
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -68,7 +66,7 @@ public class ChatController {
         String senderName = preferredUsername(authentication);
         ChatMessage saved = chatService.sendMessage(
                 request.conversationId(), request.content(), sender, senderName,
-                request.attachmentUrl(), request.attachmentType());
+                request.attachmentUrl(), request.attachmentType(), request.viewOnce());
 
         Map<String, Object> resp = new java.util.HashMap<>();
         resp.put("id", saved.getId());
@@ -79,6 +77,7 @@ public class ChatController {
         resp.put("attachmentUrl", saved.getAttachmentUrl() != null ? saved.getAttachmentUrl() : "");
         resp.put("attachmentType", saved.getAttachmentType() != null ? saved.getAttachmentType() : "");
         resp.put("createdAt", saved.getCreatedAt().toString());
+        resp.put("viewOnce", saved.isViewOnce());
         resp.put("status", "persisted_and_published");
         return ResponseEntity.ok(resp);
     }
@@ -90,32 +89,16 @@ public class ChatController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "50") int size
     ) {
-        Page<ChatMessage> paged = chatService.listMessages(conversationId, page, size);
-
-        List<Map<String, Object>> messages = paged.getContent().stream()
-                .map(message -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id", message.getId());
-                    m.put("conversationId", message.getConversation().getId());
-                    m.put("sender", message.getSender());
-                    m.put("senderName", message.getSenderName() != null ? message.getSenderName() : message.getSender());
-                    m.put("content", message.getContent() != null ? message.getContent() : "");
-                    m.put("attachmentUrl", message.getAttachmentUrl() != null ? message.getAttachmentUrl() : "");
-                    m.put("attachmentType", message.getAttachmentType() != null ? message.getAttachmentType() : "");
-                    m.put("createdAt", message.getCreatedAt().toString());
-                    return m;
-                })
-                .toList();
+        String currentUserId = authentication.getName();
+        List<Map<String, Object>> messages = chatService.listMessages(conversationId, page, size, currentUserId);
 
         return ResponseEntity.ok(Map.of(
                 "messages", messages,
-                "page", paged.getNumber(),
-                "size", paged.getSize(),
-                "totalPages", paged.getTotalPages(),
-                "totalElements", paged.getTotalElements()
+                "page", page,
+                "size", size
         ));
     }
 
     public record CreateConversationRequest(String name) {}
-    public record MessageRequest(Long conversationId, String content, String attachmentUrl, String attachmentType) {}
+    public record MessageRequest(Long conversationId, String content, String attachmentUrl, String attachmentType, boolean viewOnce) {}
 }

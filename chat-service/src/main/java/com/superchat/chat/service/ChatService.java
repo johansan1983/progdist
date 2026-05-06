@@ -1,6 +1,7 @@
 package com.superchat.chat.service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -64,7 +65,7 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendMessage(Long conversationId, String content, String sender, String senderName,
-            String attachmentUrl, String attachmentType) {
+            String attachmentUrl, String attachmentType, boolean viewOnce) {
         if (conversationId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "conversationId is required");
         }
@@ -87,6 +88,7 @@ public class ChatService {
         }
         message.setSender(sender);
         message.setSenderName(senderName);
+        message.setViewOnce(viewOnce);
 
         ChatMessage saved = chatMessageRepository.save(message);
 
@@ -117,11 +119,41 @@ public class ChatService {
         return saved;
     }
 
-    @Transactional(readOnly = true)
-    public Page<ChatMessage> listMessages(Long conversationId, int page, int size) {
+    @Transactional
+    public List<Map<String, Object>> listMessages(Long conversationId, int page, int size, String currentUserId) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(size, 200));
         PageRequest pr = PageRequest.of(safePage, safeSize, Sort.by("createdAt").ascending());
-        return chatMessageRepository.findByConversationId(conversationId, pr);
+        Page<ChatMessage> paged = chatMessageRepository.findByConversationId(conversationId, pr);
+
+        return paged.getContent().stream().map(msg -> {
+            Map<String, Object> m = new java.util.HashMap<>();
+            m.put("id", msg.getId());
+            m.put("conversationId", msg.getConversation().getId());
+            m.put("sender", msg.getSender());
+            m.put("senderName", msg.getSenderName() != null ? msg.getSenderName() : msg.getSender());
+            m.put("attachmentUrl", msg.getAttachmentUrl() != null ? msg.getAttachmentUrl() : "");
+            m.put("attachmentType", msg.getAttachmentType() != null ? msg.getAttachmentType() : "");
+            m.put("createdAt", msg.getCreatedAt().toString());
+            m.put("viewOnce", msg.isViewOnce());
+
+            boolean isSender = msg.getSender().equals(currentUserId);
+
+            if (msg.isViewOnce() && !isSender) {
+                if (!msg.isViewed()) {
+                    m.put("content", msg.getContent() != null ? msg.getContent() : "");
+                    m.put("viewOnceExpired", false);
+                    chatMessageRepository.markViewed(msg.getId());
+                } else {
+                    m.put("content", null);
+                    m.put("attachmentUrl", null);
+                    m.put("viewOnceExpired", true);
+                }
+            } else {
+                m.put("content", msg.getContent() != null ? msg.getContent() : "");
+                m.put("viewOnceExpired", false);
+            }
+            return m;
+        }).toList();
     }
 }
