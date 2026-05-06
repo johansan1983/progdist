@@ -121,6 +121,41 @@ public class ChatService {
     }
 
     @Transactional
+    public Conversation createDm(String myId, String myName, String participantId, String participantName) {
+        if (myId.equals(participantId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot create DM with yourself");
+        }
+        return conversationRepository.findDmBetween(myId, participantId)
+                .orElseGet(() -> {
+                    Conversation dm = new Conversation();
+                    dm.setName("DM:" + myId + ":" + participantId);
+                    dm.setType("DIRECT");
+                    dm.setDmParticipantA(myId);
+                    dm.setDmParticipantAName(myName);
+                    dm.setDmParticipantB(participantId);
+                    dm.setDmParticipantBName(participantName);
+                    return conversationRepository.save(dm);
+                });
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> listConversationsForUser(String userId) {
+        return conversationRepository.findAllForUser(userId).stream().map(c -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", c.getId());
+            m.put("name", c.getName());
+            m.put("type", c.getType());
+            m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
+            if ("DIRECT".equals(c.getType())) {
+                boolean iAmA = userId.equals(c.getDmParticipantA());
+                m.put("otherParticipantName", iAmA ? c.getDmParticipantBName() : c.getDmParticipantAName());
+                m.put("otherParticipantId", iAmA ? c.getDmParticipantB() : c.getDmParticipantA());
+            }
+            return m;
+        }).toList();
+    }
+
+    @Transactional
     public List<Map<String, Object>> listMessages(Long conversationId, int page, int size, String currentUserId) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(size, 200));
