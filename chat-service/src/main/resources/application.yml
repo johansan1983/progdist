@@ -55,6 +55,7 @@ spring:
   redis:
     host: ${SPRING_DATA_REDIS_HOST:localhost}
     port: ${SPRING_DATA_REDIS_PORT:6379}
+
   security:
     oauth2:
       resourceserver:
@@ -98,3 +99,10 @@ springdoc:
     path: /chat/v3/api-docs
   swagger-ui:
     path: /chat/docs
+
+minio:
+  url: ${MINIO_URL:http://localhost:9000}
+  external-url: ${MINIO_EXTERNAL_URL:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:superchat}
+  secret-key: ${MINIO_SECRET_KEY:superchat123}
+  bucket: ${MINIO_BUCKET:superchat-attachments}
