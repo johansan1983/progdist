@@ -33,9 +33,12 @@
 
       <section class="panel panel-chat hidden" id="chatPanel">
         <header class="chat-header">
-          <div>
-            <h2>Chat General</h2>
-            <p id="sessionInfo"></p>
+          <div class="chat-header-left">
+            <button id="sidebarToggle" type="button" class="btn-icon sidebar-toggle-btn" aria-label="Conversaciones" aria-expanded="false">☰</button>
+            <div>
+              <h2 id="chatTitle">Chat General</h2>
+              <p id="sessionInfo"></p>
+            </div>
           </div>
           <div class="chat-actions">
             <div class="status-row">
@@ -47,6 +50,7 @@
         </header>
 
         <div class="chat-layout">
+          <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
           <aside class="conv-sidebar" aria-label="Conversaciones">
             <div class="conv-sidebar-header">
               <h3>Conversaciones</h3>
@@ -78,6 +82,7 @@
               <button type="button" id="attachBtn" class="btn-icon" title="Adjuntar archivo">📎</button>
               <button type="button" id="emojiBtn" class="btn-icon" title="Emojis">😊</button>
               <button type="button" id="viewOnceBtn" class="btn-icon" title="Ver una vez" aria-label="Ver una vez" aria-pressed="false">🔥</button>
+              <button type="button" id="voiceBtn" class="btn-icon" title="Mensaje de voz" aria-label="Grabar mensaje de voz" aria-pressed="false">🎤</button>
               <div id="emojiPicker" class="emoji-picker-container hidden"></div>
               <div id="attachmentPreview" class="attachment-preview hidden"></div>
               <textarea id="messageInput" placeholder="Escribe un mensaje..." maxlength="2000" rows="1" spellcheck="true" lang="es"></textarea>
