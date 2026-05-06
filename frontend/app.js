@@ -40,6 +40,7 @@ const state = {
   totalPages: 0,
   isLoadingMessages: false,
   optimisticMessages: new Map(),
+  presenceInterval: null,
 };
 
 // ── Token management ─────────────────────────────────────────────────────────
@@ -141,6 +142,8 @@ function resetState() {
   state.currentPage = 0;
   state.totalPages = 0;
   state.optimisticMessages.clear();
+  clearInterval(state.presenceInterval);
+  state.presenceInterval = null;
 }
 
 function logout() {
@@ -202,7 +205,7 @@ function renderPresence(users) {
 
   unique.forEach(user => {
     const item = document.createElement("li");
-    item.textContent = (user === state.username && state.displayName) ? state.displayName : user;
+    item.textContent = user;
     presenceListEl.appendChild(item);
   });
 }
@@ -252,7 +255,23 @@ async function simulatePublisherRestore() {
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 
+function resolveDisplayName(message) {
+  if (message.senderName) return message.senderName;
+  const sender = message.sender || "system";
+  return (sender === state.username && state.displayName) ? state.displayName : sender;
+}
+
 function appendMessage(message, isOptimistic = false) {
+  // Deduplicate: if a confirmed optimistic message matches this real one, skip the duplicate
+  if (!isOptimistic && message.sender === state.username) {
+    const confirmed = messagesEl.querySelector("[data-confirmed]");
+    if (confirmed && confirmed.dataset.content === message.content) {
+      confirmed.removeAttribute("data-confirmed");
+      confirmed.removeAttribute("data-content");
+      return;
+    }
+  }
+
   const item = document.createElement("div");
   item.className = "msg" + (isOptimistic ? " msg-optimistic" : "");
   if (message.optimisticId) item.id = `msg-${message.optimisticId}`;
@@ -261,9 +280,7 @@ function appendMessage(message, isOptimistic = false) {
   meta.className = "meta";
   const created = message.createdAt ? new Date(message.createdAt).toLocaleTimeString() : "";
   const status = isOptimistic ? " (enviando...)" : "";
-  const sender = message.sender || "system";
-  const displaySender = (sender === state.username && state.displayName) ? state.displayName : sender;
-  meta.textContent = `${displaySender} ${created}${status}`.trim();
+  meta.textContent = `${resolveDisplayName(message)} ${created}${status}`.trim();
 
   const content = document.createElement("div");
   content.textContent = message.content || "";
@@ -402,10 +419,10 @@ function connectWebSocket() {
     reconnectDelay: 5000,
     onConnect: () => {
       setSocketStatus(true);
-      client.subscribe(`/topic/conversations/${state.conversationId}`, frame => {
+      client.subscribe(`/topic/conversations.${state.conversationId}`, frame => {
         appendMessage(JSON.parse(frame.body));
       });
-      client.subscribe(`/topic/conversations/${state.conversationId}/typing`, frame => {
+      client.subscribe(`/topic/conversations.${state.conversationId}.typing`, frame => {
         handleTypingEvent(JSON.parse(frame.body));
       });
       client.subscribe(`/topic/presence`, frame => {
@@ -413,9 +430,11 @@ function connectWebSocket() {
         renderPresence(snapshot.users || []);
       });
       refreshPresence();
+      if (state.presenceInterval) clearInterval(state.presenceInterval);
+      state.presenceInterval = setInterval(() => { if (state.token) refreshPresence(); }, 10000);
     },
     onStompError: () => setSocketStatus(false),
-    onWebSocketClose: () => setSocketStatus(false),
+    onWebSocketClose: () => { setSocketStatus(false); clearInterval(state.presenceInterval); },
   });
 
   state.stompClient = client;
@@ -464,7 +483,7 @@ messageForm.addEventListener("submit", async event => {
   if (!content) return;
 
   const optimisticId = `temp-${Date.now()}`;
-  appendMessage({ optimisticId, sender: state.username, content, createdAt: new Date().toISOString() }, true);
+  appendMessage({ optimisticId, sender: state.username, senderName: state.displayName, content, createdAt: new Date().toISOString() }, true);
   state.optimisticMessages.set(optimisticId, true);
   messageInputEl.value = "";
 
@@ -475,7 +494,14 @@ messageForm.addEventListener("submit", async event => {
       body: JSON.stringify({ conversationId: state.conversationId, content }),
     });
     state.optimisticMessages.delete(optimisticId);
-    document.getElementById(`msg-${optimisticId}`)?.classList.remove("msg-optimistic");
+    const confirmedEl = document.getElementById(`msg-${optimisticId}`);
+    if (confirmedEl) {
+      confirmedEl.classList.remove("msg-optimistic");
+      confirmedEl.dataset.confirmed = "true";
+      confirmedEl.dataset.content = content;
+      const metaEl = confirmedEl.querySelector(".meta");
+      if (metaEl) metaEl.textContent = metaEl.textContent.replace(" (enviando...)", "");
+    }
   } catch {
     const el = document.getElementById(`msg-${optimisticId}`);
     if (el) { el.classList.add("msg-error"); el.title = "Falló al enviar. Intenta de nuevo."; }
@@ -493,6 +519,33 @@ logoutBtn?.addEventListener("click", logout);
 simulateFailBtn?.addEventListener("click", simulatePublisherFailure);
 simulateRestoreBtn?.addEventListener("click", simulatePublisherRestore);
 loadMoreBtn?.addEventListener("click", loadMoreMessages);
+
+// ── Emoji picker ──────────────────────────────────────────────────────────────
+
+const emojiPickerContainer = document.getElementById('emojiPicker');
+const picker = new EmojiMart.Picker({
+  locale: 'es',
+  onEmojiSelect: (emoji) => {
+    const input = document.getElementById('messageInput');
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const text = input.value;
+    input.value = text.slice(0, start) + emoji.native + text.slice(end);
+    input.selectionStart = input.selectionEnd = start + emoji.native.length;
+    input.focus();
+    emojiPickerContainer.classList.add('hidden');
+  }
+});
+emojiPickerContainer.appendChild(picker);
+
+document.getElementById('emojiBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  emojiPickerContainer.classList.toggle('hidden');
+});
+
+document.addEventListener('click', () => {
+  emojiPickerContainer.classList.add('hidden');
+});
 
 // ── Session restore ───────────────────────────────────────────────────────────
 
