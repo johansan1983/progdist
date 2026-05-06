@@ -163,6 +163,20 @@ button:hover {
   position: relative;
 }
 
+/* Always out of the grid flow — only visible on mobile as overlay */
+.sidebar-backdrop {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  z-index: 19;
+  border-radius: inherit;
+}
+
+.sidebar-backdrop.open {
+  display: block;
+}
+
 .chat-main {
   min-height: 0;
   display: grid;
@@ -496,19 +510,6 @@ button:hover {
     transform: translateX(0);
     visibility: visible;
     box-shadow: 4px 0 28px rgba(0, 0, 0, 0.18);
-  }
-
-  .sidebar-backdrop {
-    display: none;
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.28);
-    z-index: 19;
-    border-radius: inherit;
-  }
-
-  .sidebar-backdrop.open {
-    display: block;
   }
 
   .chat-actions {
