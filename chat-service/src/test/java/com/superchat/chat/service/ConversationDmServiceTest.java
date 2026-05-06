@@ -79,6 +79,19 @@ class ConversationDmServiceTest {
         assertEquals("bob", result.get(1).get("otherParticipantName"));
     }
 
+    @Test
+    void testCreateDm_ReverseOrder_ReturnsExisting() {
+        // Alice started DM with Bob (A=alice, B=bob)
+        Conversation existing = dmConversation(5L, "alice-id", "alice", "bob-id", "bob");
+        // Bob now tries to DM Alice — findDmBetween handles both orderings
+        when(conversationRepository.findDmBetween("bob-id", "alice-id")).thenReturn(Optional.of(existing));
+
+        Conversation result = chatService.createDm("bob-id", "bob", "alice-id", "alice");
+
+        assertEquals(5L, result.getId());
+        verify(conversationRepository, never()).save(any());
+    }
+
     private Conversation dmConversation(Long id, String aId, String aName, String bId, String bName) {
         Conversation c = new Conversation();
         c.setId(id);
