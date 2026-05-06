@@ -47,6 +47,14 @@
         </header>
 
         <div class="chat-layout">
+          <aside class="conv-sidebar" aria-label="Conversaciones">
+            <div class="conv-sidebar-header">
+              <h3>Conversaciones</h3>
+              <button id="newDmBtn" type="button" class="btn-ghost btn-sm">+ DM</button>
+            </div>
+            <ul id="convList" class="conv-list"></ul>
+          </aside>
+
           <section class="chat-main">
             <section class="sim-panel" aria-label="Simulacion RabbitMQ">
               <div class="sim-title">Simulación de falla</div>
@@ -85,6 +93,16 @@
         </div>
       </section>
     </main>
+
+    <!-- DM modal -->
+    <div id="dmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Nuevo mensaje directo">
+      <div class="modal-box">
+        <h3>Nuevo mensaje directo</h3>
+        <input id="dmSearch" type="text" placeholder="Buscar usuario..." class="dm-search-input" aria-label="Buscar usuario" />
+        <ul id="dmUserList" class="dm-user-list"></ul>
+        <button id="closeDmModal" type="button" class="btn-ghost">Cancelar</button>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
