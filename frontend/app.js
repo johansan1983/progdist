@@ -543,8 +543,16 @@ document.getElementById('emojiBtn').addEventListener('click', (e) => {
   emojiPickerContainer.classList.toggle('hidden');
 });
 
-document.addEventListener('click', () => {
-  emojiPickerContainer.classList.add('hidden');
+document.addEventListener('click', (e) => {
+  if (!emojiPickerContainer.contains(e.target) && e.target !== document.getElementById('emojiBtn')) {
+    emojiPickerContainer.classList.add('hidden');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    emojiPickerContainer.classList.add('hidden');
+  }
 });
 
 // ── Session restore ───────────────────────────────────────────────────────────
