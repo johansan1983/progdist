@@ -13,18 +13,15 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class AttachmentService {
 
-    private final MinioClient internalClient;
     private final MinioClient externalClient;
     private final String bucket;
     private final String externalUrl;
 
     public AttachmentService(
-            @Qualifier("minioClient") MinioClient internalClient,
             @Qualifier("externalMinioClient") MinioClient externalClient,
             @Value("${minio.bucket}") String bucket,
             @Value("${minio.external-url}") String externalUrl
     ) {
-        this.internalClient = internalClient;
         this.externalClient = externalClient;
         this.bucket = bucket;
         this.externalUrl = externalUrl;

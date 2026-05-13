@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -22,6 +24,8 @@ import com.superchat.chat.repo.ConversationRepository;
 
 @Service
 public class ChatService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     private final ConversationRepository conversationRepository;
     private final ChatMessageRepository chatMessageRepository;
@@ -104,6 +108,7 @@ public class ChatService {
         chatEvent.put("publishedAt", Instant.now().toString());
         chatEvent.put("attachmentUrl", saved.getAttachmentUrl() != null ? saved.getAttachmentUrl() : "");
         chatEvent.put("attachmentType", saved.getAttachmentType() != null ? saved.getAttachmentType() : "");
+        log.info("[Rabbit] published messageId={} to exchange={}", saved.getId(), exchange);
         rabbitTemplate.convertAndSend(exchange, routingKey, chatEvent);
 
         Map<String, Object> notificationEvent = new HashMap<>();
@@ -115,6 +120,7 @@ public class ChatService {
         notificationEvent.put("senderName", senderName != null ? senderName : sender);
         notificationEvent.put("content", saved.getContent() != null ? saved.getContent() : "");
         notificationEvent.put("createdAt", saved.getCreatedAt().toString());
+        log.info("[Rabbit] published notification for messageId={} to exchange={}", saved.getId(), notificationsExchange);
         rabbitTemplate.convertAndSend(notificationsExchange, notificationsRoutingKey, notificationEvent);
 
         return saved;
