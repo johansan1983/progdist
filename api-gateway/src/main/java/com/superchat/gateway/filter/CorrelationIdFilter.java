@@ -11,7 +11,7 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -19,23 +19,30 @@ public class CorrelationIdFilter implements WebFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CorrelationIdFilter.class);
     public static final String REQUEST_ID_HEADER = "X-Request-ID";
+    private static final AtomicLong COUNTER = new AtomicLong(0);
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String requestId = exchange.getRequest().getHeaders().getFirst(REQUEST_ID_HEADER);
         if (requestId == null || requestId.isBlank()) {
-            requestId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+            requestId = String.format("%04d", COUNTER.incrementAndGet());
         }
         final String rid = requestId;
 
-        MDC.put("requestId", rid);
-        log.info("[API] {} {}", exchange.getRequest().getMethod(), exchange.getRequest().getPath().value());
-        MDC.remove("requestId");
+        String path = exchange.getRequest().getPath().value();
+        if (!path.startsWith("/actuator") && !path.equals("/api/chat/presence")) {
+            MDC.put("requestId", rid);
+            log.info("[API] {} {}", exchange.getRequest().getMethod(), path);
+            MDC.remove("requestId");
+        }
 
         ServerWebExchange mutated = exchange.mutate()
                 .request(r -> r.header(REQUEST_ID_HEADER, rid))
                 .build();
 
-        return chain.filter(mutated);
+        // contextWrite propagates requestId through the reactive chain;
+        // MdcContextLifterConfig.MdcLifter restores it into MDC at each async boundary.
+        return chain.filter(mutated)
+                .contextWrite(ctx -> ctx.put("requestId", rid));
     }
 }
