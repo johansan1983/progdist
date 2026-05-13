@@ -7,6 +7,8 @@ import com.superchat.chat.domain.ChatMessage;
 import com.superchat.chat.domain.Conversation;
 import com.superchat.chat.service.ChatService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,6 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/chat")
 public class ChatController {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
     private final ChatService chatService;
 
@@ -94,6 +98,7 @@ public class ChatController {
     ) {
         String sender = authentication.getName();
         String senderName = preferredUsername(authentication);
+        log.info("[API] POST /chat/messages sender={} conversationId={}", senderName, request.conversationId());
         chatService.assertDmAccess(request.conversationId(), authentication.getName());
         ChatMessage saved = chatService.sendMessage(
                 request.conversationId(), request.content(), sender, senderName,

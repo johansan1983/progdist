@@ -7,19 +7,18 @@ import static org.mockito.Mockito.*;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
+
 import org.junit.jupiter.api.Test;
 
 class AttachmentServiceTest {
 
     private AttachmentService attachmentService;
-    private MinioClient internalClient;
     private MinioClient externalClient;
 
     @BeforeEach
     void setUp() {
-        internalClient = mock(MinioClient.class);
         externalClient = mock(MinioClient.class);
-        attachmentService = new AttachmentService(internalClient, externalClient, "superchat-attachments", "http://localhost:9000");
+        attachmentService = new AttachmentService(externalClient, "superchat-attachments", "http://localhost:9000");
     }
 
     @Test

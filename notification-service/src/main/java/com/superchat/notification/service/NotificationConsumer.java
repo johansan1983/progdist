@@ -6,7 +6,9 @@ import com.superchat.notification.domain.NotificationType;
 import com.superchat.notification.repo.NotificationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -25,7 +27,11 @@ public class NotificationConsumer {
     }
 
     @RabbitListener(queues = "${notifications.rabbit.queue:notifications.queue}")
-    public void handleNotificationEvent(Map<String, Object> event) {
+    public void handleNotificationEvent(Map<String, Object> event,
+                                        @Header(value = "X-Request-ID", required = false) String requestId) {
+        if (requestId != null) {
+            MDC.put("requestId", requestId);
+        }
         try {
             String sender = String.valueOf(event.getOrDefault("sender", "unknown"));
             String payload = objectMapper.writeValueAsString(event);
@@ -36,8 +42,11 @@ public class NotificationConsumer {
             notification.setPayload(payload);
 
             repository.save(notification);
+            log.info("[Worker] saved notification for sender={} messageId={}", sender, event.get("messageId"));
         } catch (Exception e) {
             log.error("Failed to process notification event: {}", event, e);
+        } finally {
+            MDC.remove("requestId");
         }
     }
 }
