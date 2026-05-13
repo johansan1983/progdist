@@ -9,15 +9,17 @@ Documento de arquitectura para presentación:
 ## Stack
 
 - Java 21 (Temurin)
-- Spring Boot 3.5
+- Spring Boot 3.5 / Spring Cloud 2025.0.2
 - Spring Cloud Gateway (API Gateway + rate limiting)
 - Spring Cloud Config Server
-- Keycloak 26 (OAuth2/OIDC, emisión de JWT)
+- Keycloak 26.6.1 (OAuth2/OIDC, emisión de JWT)
 - RabbitMQ 4 (mensajería async + relay STOMP)
 - PostgreSQL 16 (persistencia)
 - Redis 7 (rate limiting y presencia)
+- MinIO (almacenamiento de archivos adjuntos)
 - Frontend HTML/CSS/JS con Nginx
 - Prometheus + Grafana (observabilidad)
+- Dozzle (visor de logs de contenedores en tiempo real)
 - Docker Compose
 
 ## Arquitectura
@@ -34,8 +36,10 @@ Documento de arquitectura para presentación:
 | `rabbitmq` | 5672/61613/15672 | Broker de eventos + relay STOMP |
 | `postgres` | 5432 | Bases de datos separadas por servicio |
 | `redis` | 6379 | Rate limiting y presencia |
+| `minio` | 9000/9001 | Almacenamiento de archivos adjuntos |
 | `prometheus` | 9090 | Recolección de métricas |
 | `grafana` | 3001 | Dashboards |
+| `dozzle` | 9999 | Visor de logs de contenedores |
 
 Flujo principal de mensaje en tiempo real:
 
@@ -81,16 +85,21 @@ docker compose ps
 
 ## URLs
 
-- Frontend: http://localhost:3000
-- Keycloak Admin: http://localhost:8080
-- API Gateway: http://localhost:8090
-- Config Server: http://localhost:8888
-- RabbitMQ Management: http://localhost:15672 (superchat/superchat123)
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3001 (admin/admin)
-- Chat Swagger: http://localhost:8082/docs
-- User Swagger: http://localhost:8083/docs
-- Notification Swagger: http://localhost:8084/docs
+| URL | Descripción | Credenciales |
+|---|---|---|
+| http://localhost:3000 | Frontend SPA | (usuarios Keycloak) |
+| http://localhost:8080 | Keycloak Admin | admin / admin |
+| http://localhost:8090 | API Gateway | — |
+| http://localhost:8888 | Config Server | — |
+| http://localhost:15672 | RabbitMQ Management | superchat / superchat123 |
+| http://localhost:9000 | MinIO API | superchat / superchat123 |
+| http://localhost:9001 | MinIO Console | superchat / superchat123 |
+| http://localhost:9090 | Prometheus | — |
+| http://localhost:3001 | Grafana | admin / admin |
+| http://localhost:9999 | Dozzle (logs) | — |
+| http://localhost:8082/docs | Chat Swagger | — |
+| http://localhost:8083/docs | User Swagger | — |
+| http://localhost:8084/docs | Notification Swagger | — |
 
 ## Troubleshooting rápido
 
@@ -101,10 +110,11 @@ docker compose logs --tail=50 chat-service
 docker compose logs --tail=50 notification-service
 ```
 
+También puedes ver los logs en tiempo real desde Dozzle en http://localhost:9999.
+
 Causas frecuentes:
 - RabbitMQ sin el usuario `superchat` (ocurre si el volumen ya existía con otro usuario). Solución:
   ```bash
-  # Crear el usuario via management API
   curl -u guest:guest -X PUT http://localhost:15672/api/users/superchat \
     -H "Content-Type: application/json" \
     -d '{"password":"superchat123","tags":"administrator"}'
@@ -124,6 +134,7 @@ Todos los endpoints de negocio pasan por el API Gateway en `http://localhost:809
 - `GET  /api/chat/conversations/{id}/messages`
 - `POST /api/chat/conversations`
 - `POST /api/chat/messages`
+- `POST /api/chat/attachments/presign` — genera URL prefirmada para subir archivos a MinIO
 - `GET  /api/chat/presence`
 - `GET  /api/chat/simulation/realtime-publisher/status`
 - `POST /api/chat/simulation/realtime-publisher/fail`
@@ -131,7 +142,17 @@ Todos los endpoints de negocio pasan por el API Gateway en `http://localhost:809
 
 **Usuarios:**
 
-- `GET /api/users/me` (crea perfil automáticamente en el primer acceso)
+- `GET  /api/users/me` — devuelve (y auto-crea) el perfil del usuario autenticado
+- `PUT  /api/users/me` — actualiza el perfil
+- `GET  /api/users/{id}` — perfil de otro usuario
+- `GET  /api/users/search` — búsqueda de usuarios
+
+**Salas:**
+
+- `POST /api/rooms` — crear sala
+- `GET  /api/rooms` — listar salas
+- `GET  /api/rooms/{id}/members` — listar miembros
+- `POST /api/rooms/{id}/members` — agregar miembro
 
 **Notificaciones:**
 
@@ -233,7 +254,20 @@ Revisa los campos `messages` (pendientes) y `message_stats.publish` (total publi
 - Scroll fijo del chat con posición inicial en el último mensaje.
 - Panel de simulación (fallar/restablecer publicador) en la vista de chat.
 - Sidebar derecho con cantidad de usuarios conectados y sus nombres.
+- Envío de archivos adjuntos (imágenes, audio, documentos) via MinIO presigned URLs.
+- Mensajes de voz grabados directamente desde el navegador.
+- Mensajes de un solo uso (view-once): se auto-eliminan 5 segundos después de ser leídos.
+- Lightbox de imágenes al hacer clic.
+- Envío de mensaje con Enter.
+- Selector de emojis.
 
 ## Identidad JWT
 
 El identificador canónico de usuario en todos los servicios es el claim `sub` del JWT de Keycloak (UUID). El claim `preferred_username` lleva el nombre visible. Cada servicio valida JWTs contra el endpoint JWKS de Keycloak (`/realms/superchat/protocol/openid-connect/certs`).
+
+## Observabilidad
+
+- **Prometheus** (`:9090`) raspa métricas JVM y de negocio de los 4 servicios Spring via `/actuator/prometheus`.
+- **Grafana** (`:3001`) provee dashboards auto-provisionados (datasource Prometheus + dashboard JVM).
+- **Dozzle** (`:9999`) permite ver y filtrar logs de todos los contenedores en tiempo real desde el navegador, sin necesidad de acceso a la terminal.
+- Cada servicio incluye un `CorrelationIdFilter` que propaga el header `X-Correlation-ID` en los logs estructurados.
