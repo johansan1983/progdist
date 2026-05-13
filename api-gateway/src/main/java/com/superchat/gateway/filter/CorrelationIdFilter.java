@@ -40,6 +40,12 @@ public class CorrelationIdFilter implements WebFilter {
                 .request(r -> r.header(REQUEST_ID_HEADER, rid))
                 .build();
 
+        // Echo the ID on the response so nginx (and any client) can log it.
+        mutated.getResponse().beforeCommit(() -> {
+            mutated.getResponse().getHeaders().set(REQUEST_ID_HEADER, rid);
+            return Mono.empty();
+        });
+
         // contextWrite propagates requestId through the reactive chain;
         // MdcContextLifterConfig.MdcLifter restores it into MDC at each async boundary.
         return chain.filter(mutated)
