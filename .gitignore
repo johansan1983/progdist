@@ -1,0 +1,26 @@
+# Maven build output
+target/
+*.class
+*.jar
+*.war
+
+# Maven dependency lists
+deps.txt
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment / secrets
+.env
+*.env.local
