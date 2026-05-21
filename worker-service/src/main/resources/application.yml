@@ -1,0 +1,57 @@
+server:
+  port: ${SERVER_PORT:8085}
+
+spring:
+  application:
+    name: worker-service
+  config:
+    import: "optional:configserver:${SPRING_CLOUD_CONFIG_URI:http://localhost:8888}"
+  cloud:
+    config:
+      fail-fast: false
+      retry:
+        max-attempts: 6
+        initial-interval: 1000
+        max-interval: 5000
+        multiplier: 1.5
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        auto-startup: false
+      direct:
+        auto-startup: false
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:8080/realms/superchat/protocol/openid-connect/certs}
+
+  threads:
+    virtual:
+      enabled: true
+
+worker:
+  rabbit:
+    queue: ${WORKER_QUEUE:chat.messages.queue}
+    listener-id: chatEventConsumerListener
+  stomp:
+    routing-key-prefix: conversations.
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

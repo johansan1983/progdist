@@ -1,8 +1,8 @@
-package com.superchat.chat.web;
+package com.superchat.worker.web;
 
 import java.util.Map;
 
-import com.superchat.chat.service.ChatEventListenerControlService;
+import com.superchat.worker.service.ListenerControlService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/chat/simulation")
+@RequestMapping("/worker/simulation")
 public class SimulationController {
 
-    private final ChatEventListenerControlService controlService;
+    private final ListenerControlService controlService;
 
-    public SimulationController(ChatEventListenerControlService controlService) {
+    public SimulationController(ListenerControlService controlService) {
         this.controlService = controlService;
     }
 

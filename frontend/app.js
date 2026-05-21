@@ -10,9 +10,6 @@ const socketTextEl = document.getElementById("socketText");
 const logoutBtn = document.getElementById("logoutBtn");
 const typingIndicatorEl = document.getElementById("typingIndicator");
 const messageInputEl = document.getElementById("messageInput");
-const simulateFailBtn = document.getElementById("simulateFailBtn");
-const simulateRestoreBtn = document.getElementById("simulateRestoreBtn");
-const simulationStatusEl = document.getElementById("simulationStatus");
 const presenceCountEl = document.getElementById("presenceCount");
 const presenceListEl = document.getElementById("presenceList");
 const loadMoreBtn = document.getElementById("loadMoreBtn");
@@ -166,8 +163,7 @@ function logout() {
   resetState();
   messagesEl.innerHTML = "";
   sessionInfoEl.textContent = "";
-  if (simulationStatusEl) simulationStatusEl.textContent = "Estado publicador: desconocido";
-  renderPresence([]);
+renderPresence([]);
   renderTypingIndicator();
   loginForm.reset();
   setPanels(false);
@@ -241,39 +237,6 @@ async function refreshPresence() {
   } catch {
     renderPresence([]);
   }
-}
-
-// ── Simulation ────────────────────────────────────────────────────────────────
-
-function setSimulationStatusText(running) {
-  if (!simulationStatusEl) return;
-  if (running === true) { simulationStatusEl.textContent = "Estado publicador: activo"; return; }
-  if (running === false) { simulationStatusEl.textContent = "Estado publicador: caído (cola acumulando mensajes)"; return; }
-  simulationStatusEl.textContent = "Estado publicador: desconocido";
-}
-
-async function refreshSimulationStatus() {
-  if (!state.token) { setSimulationStatusText(undefined); return; }
-  try {
-    const data = await api("/api/chat/simulation/realtime-publisher/status", { method: "GET" });
-    setSimulationStatusText(Boolean(data.running));
-  } catch {
-    setSimulationStatusText(undefined);
-  }
-}
-
-async function simulatePublisherFailure() {
-  try {
-    await api("/api/chat/simulation/realtime-publisher/fail", { method: "POST" });
-    setSimulationStatusText(false);
-  } catch { setSimulationStatusText(undefined); }
-}
-
-async function simulatePublisherRestore() {
-  try {
-    await api("/api/chat/simulation/realtime-publisher/restore", { method: "POST" });
-    setSimulationStatusText(true);
-  } catch { setSimulationStatusText(undefined); }
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
@@ -667,7 +630,6 @@ loginForm.addEventListener("submit", async event => {
     setPanels(true);
     await loadHistory();
     await loadConversations();
-    await refreshSimulationStatus();
     connectWebSocket();
     saveSession();
   } catch {
@@ -756,8 +718,6 @@ messageInputEl.addEventListener("input", () => {
 });
 
 logoutBtn?.addEventListener("click", logout);
-simulateFailBtn?.addEventListener("click", simulatePublisherFailure);
-simulateRestoreBtn?.addEventListener("click", simulatePublisherRestore);
 loadMoreBtn?.addEventListener("click", loadMoreMessages);
 
 // ── Emoji picker ──────────────────────────────────────────────────────────────
@@ -1201,7 +1161,6 @@ async function restoreSession() {
     setPanels(true);
     await loadHistory();
     await loadConversations();
-    await refreshSimulationStatus();
     connectWebSocket();
     saveSession();
   } catch {

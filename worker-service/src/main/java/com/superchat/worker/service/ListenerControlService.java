@@ -1,4 +1,4 @@
-package com.superchat.chat.service;
+package com.superchat.worker.service;
 
 import org.springframework.amqp.rabbit.listener.MessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
@@ -10,14 +10,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
-public class ChatEventListenerControlService {
+public class ListenerControlService {
 
     private final RabbitListenerEndpointRegistry registry;
     private final String listenerId;
 
-    public ChatEventListenerControlService(
+    public ListenerControlService(
             RabbitListenerEndpointRegistry registry,
-            @Value("${chat.rabbit.listener-id:chatEventPublisherListener}") String listenerId
+            @Value("${worker.rabbit.listener-id:chatEventConsumerListener}") String listenerId
     ) {
         this.registry = registry;
         this.listenerId = listenerId;

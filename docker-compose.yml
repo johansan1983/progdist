@@ -1,3 +1,11 @@
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  db-net:
+    driver: bridge
+
 services:
 
   # ── Infrastructure ──────────────────────────────────────────────────────────
@@ -17,6 +25,8 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins
+    networks:
+      - backend-net
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -40,6 +50,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    networks:
+      - db-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U superchat -d superchat"]
       interval: 10s
@@ -55,6 +67,8 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
+    networks:
+      - backend-net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -80,6 +94,10 @@ services:
     command: ["start-dev", "--import-realm"]
     volumes:
       - ./keycloak/superchat-realm.json:/opt/keycloak/data/import/superchat-realm.json:ro
+    networks:
+      - frontend-net
+      - backend-net
+      - db-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,6 +121,8 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
+    networks:
+      - backend-net
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
@@ -120,6 +140,8 @@ services:
       - "8888:8888"
     environment:
       SERVER_PORT: 8888
+    networks:
+      - backend-net
     healthcheck:
       test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8888/actuator/health || exit 1"]
       interval: 10s
@@ -139,6 +161,9 @@ services:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+    networks:
+      - frontend-net
+      - backend-net
     depends_on:
       config-server:
         condition: service_healthy
@@ -181,6 +206,10 @@ services:
       MINIO_ACCESS_KEY: superchat
       MINIO_SECRET_KEY: superchat123
       MINIO_BUCKET: superchat-attachments
+    networks:
+      - frontend-net
+      - backend-net
+      - db-net
     depends_on:
       config-server:
         condition: service_healthy
@@ -212,6 +241,9 @@ services:
       SPRING_DATASOURCE_USERNAME: superchat
       SPRING_DATASOURCE_PASSWORD: superchat123
       KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/superchat/protocol/openid-connect/certs
+    networks:
+      - backend-net
+      - db-net
     depends_on:
       config-server:
         condition: service_healthy
@@ -240,6 +272,9 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: superchat
       SPRING_RABBITMQ_PASSWORD: superchat123
+    networks:
+      - backend-net
+      - db-net
     depends_on:
       config-server:
         condition: service_healthy
@@ -254,6 +289,37 @@ services:
       retries: 10
       start_period: 40s
 
+  worker-service:
+    build: ./worker-service
+    container_name: worker-service
+    restart: always
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8085
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: superchat
+      SPRING_RABBITMQ_PASSWORD: superchat123
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/superchat/protocol/openid-connect/certs
+    networks:
+      - backend-net
+    depends_on:
+      config-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8085/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
   frontend:
     build:
       context: ./frontend
@@ -262,6 +328,8 @@ services:
     restart: always
     ports:
       - "3000:80"
+    networks:
+      - frontend-net
     depends_on:
       api-gateway:
         condition: service_healthy
@@ -283,6 +351,8 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle'
+    networks:
+      - backend-net
 
   grafana:
     image: grafana/grafana:11.6.14
@@ -296,6 +366,8 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - backend-net
 
   dozzle:
     image: amir20/dozzle:v10.5.3
@@ -305,6 +377,21 @@ services:
       - "9999:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend-net
+
+  portainer:
+    image: portainer/portainer-ce:2.21.5
+    container_name: portainer
+    restart: always
+    ports:
+      - "9080:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - backend-net
 
 volumes:
   rabbitmq_data:
@@ -314,3 +401,4 @@ volumes:
   prometheus_data:
   grafana_data:
   minio_data:
+  portainer_data:

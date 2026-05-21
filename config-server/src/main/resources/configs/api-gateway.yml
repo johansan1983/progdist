@@ -47,6 +47,12 @@ spring:
             - Path=/api/rooms/**
           filters:
             - StripPrefix=1
+        - id: worker-service
+          uri: http://worker-service:8085
+          predicates:
+            - Path=/api/worker/**
+          filters:
+            - StripPrefix=1
 
 management:
   endpoints:

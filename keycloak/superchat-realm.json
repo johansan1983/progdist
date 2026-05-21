@@ -39,6 +39,80 @@
     }
   ],
   "scopeMappings": [],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Anderson",
+      "email": "alice@superchat.local",
+      "credentials": [
+        { "type": "password", "value": "demo123", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Brown",
+      "email": "bob@superchat.local",
+      "credentials": [
+        { "type": "password", "value": "demo123", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "charlie",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Charlie",
+      "lastName": "Clark",
+      "email": "charlie@superchat.local",
+      "credentials": [
+        { "type": "password", "value": "demo123", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "dave",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dave",
+      "lastName": "Davis",
+      "email": "dave@superchat.local",
+      "credentials": [
+        { "type": "password", "value": "demo123", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "eve",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Eve",
+      "lastName": "Evans",
+      "email": "eve@superchat.local",
+      "credentials": [
+        { "type": "password", "value": "demo123", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "frank",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Frank",
+      "lastName": "Foster",
+      "email": "frank@superchat.local",
+      "credentials": [
+        { "type": "password", "value": "demo123", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    }
+  ],
   "internationalizationEnabled": false,
   "browserSecurityHeaders": {
     "xContentTypeOptions": "nosniff",
