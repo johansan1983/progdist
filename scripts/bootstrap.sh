@@ -53,11 +53,17 @@ compose_cmd() {
 # ── Parse args ───────────────────────────────────────────────────────────────
 
 DO_UP=1
+DO_UFW=0
 for arg in "$@"; do
   case "$arg" in
     --no-up) DO_UP=0 ;;
+    --open-firewall) DO_UFW=1 ;;
     -h|--help)
       sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+      echo
+      echo "Flags adicionales:"
+      echo "  --no-up           Solo instalar deps, no levantar el stack"
+      echo "  --open-firewall   Si ufw esta activo, abre los puertos del stack"
       exit 0
       ;;
     *) warn "Argumento desconocido: $arg" ;;
@@ -74,6 +80,25 @@ fi
 . /etc/os-release 2>/dev/null || true
 ok "Detectado: ${PRETTY_NAME:-Linux apt-based}"
 
+# Detectar familia (ubuntu vs debian) para elegir el repo Docker correcto.
+OS_FAMILY=""
+case "${ID:-}" in
+  ubuntu) OS_FAMILY=ubuntu ;;
+  debian) OS_FAMILY=debian ;;
+  *)
+    case "${ID_LIKE:-}" in
+      *ubuntu*) OS_FAMILY=ubuntu ;;
+      *debian*) OS_FAMILY=debian ;;
+    esac
+    ;;
+esac
+if [[ -z "$OS_FAMILY" ]]; then
+  err "Distro no soportada por el bootstrap (ID=${ID:-?}, ID_LIKE=${ID_LIKE:-?})."
+  err "Soportadas: Ubuntu, Debian (o derivados). Instala Docker a mano y corre con --no-install."
+  exit 1
+fi
+ok "Familia detectada: $OS_FAMILY (repo Docker: https://download.docker.com/linux/${OS_FAMILY})"
+
 # Detectar WSL2
 IS_WSL=0
 if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
@@ -83,9 +108,9 @@ fi
 
 # ── Step 2: instalar dependencias del sistema ────────────────────────────────
 
-log "Instalando dependencias del sistema (curl, gpg, ca-certificates)..."
+log "Instalando dependencias del sistema (curl, gpg, git, make, gettext, ca-certificates)..."
 $SUDO apt-get update -qq
-$SUDO apt-get install -y -qq ca-certificates curl gnupg lsb-release make >/dev/null
+$SUDO apt-get install -y -qq ca-certificates curl gnupg lsb-release make git gettext-base >/dev/null
 ok "Dependencias base instaladas."
 
 # ── Step 3: instalar Docker si no está ───────────────────────────────────────
@@ -93,15 +118,15 @@ ok "Dependencias base instaladas."
 if command -v docker >/dev/null 2>&1; then
   ok "Docker ya está instalado ($(docker --version))."
 else
-  log "Instalando Docker Engine + Compose plugin..."
+  log "Instalando Docker Engine + Compose plugin (familia: $OS_FAMILY)..."
   $SUDO install -m 0755 -d /etc/apt/keyrings
   if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    curl -fsSL "https://download.docker.com/linux/${OS_FAMILY}/gpg" \
       | $SUDO gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     $SUDO chmod a+r /etc/apt/keyrings/docker.gpg
   fi
   DISTRO_CODENAME="$(lsb_release -cs)"
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${DISTRO_CODENAME} stable" \
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${OS_FAMILY} ${DISTRO_CODENAME} stable" \
     | $SUDO tee /etc/apt/sources.list.d/docker.list >/dev/null
   $SUDO apt-get update -qq
   $SUDO apt-get install -y -qq docker-ce docker-ce-cli containerd.io \
@@ -185,6 +210,29 @@ fi
 cd "$(dirname "$0")/.."
 PROJECT_DIR="$(pwd)"
 log "Directorio del proyecto: $PROJECT_DIR"
+
+# ── Step 6b: abrir firewall (ufw) si se pidió ────────────────────────────────
+
+if [[ $DO_UFW -eq 1 ]]; then
+  if command -v ufw >/dev/null 2>&1; then
+    if $SUDO ufw status 2>/dev/null | grep -q "Status: active"; then
+      log "Abriendo puertos del stack en ufw..."
+      for port in 3000 8080 8090 9080 9999 3001 9090 15672 9001; do
+        $SUDO ufw allow "${port}/tcp" >/dev/null 2>&1 || true
+      done
+      ok "Puertos abiertos: 3000 8080 8090 9080 9999 3001 9090 15672 9001"
+    else
+      warn "ufw está instalado pero inactivo — no se abrieron puertos (no es necesario)."
+    fi
+  else
+    warn "ufw no está instalado en este sistema — se ignora --open-firewall."
+  fi
+fi
+
+# ── Step 7: renderizar el realm de Keycloak con PUBLIC_HOST/PUBLIC_DOMAIN ────
+
+log "Renderizando realm de Keycloak..."
+bash scripts/render-realm.sh
 
 if [[ $DO_UP -eq 0 ]]; then
   ok "Bootstrap completado (sin levantar el stack porque pasaste --no-up)."

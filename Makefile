@@ -2,7 +2,7 @@ COMPOSE ?= docker compose
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap up down build rebuild restart ps logs logs-% status clean prune init-volumes wait-keycloak reseed-keycloak health urls
+.PHONY: help bootstrap up down build rebuild restart ps logs logs-% status clean prune init-volumes wait-keycloak reseed-keycloak health urls render-realm up-prod down-prod
 
 help: ## Mostrar esta ayuda
 	@awk 'BEGIN {FS = ":.*##"; printf "\nTargets disponibles:\n"} /^[a-zA-Z_%-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -13,8 +13,20 @@ bootstrap: ## Desde WSL2 / Linux limpia: instala Docker y levanta el stack compl
 init-volumes: ## Crear volumen externo de RabbitMQ (solo la primera vez)
 	docker volume create rabbitmq_data || true
 
-up: init-volumes ## Levantar todo el stack en background (compila si hace falta)
+render-realm: ## Regenerar keycloak/superchat-realm.json desde el template usando PUBLIC_HOST/PUBLIC_DOMAIN
+	bash scripts/render-realm.sh
+
+up: init-volumes render-realm ## Levantar todo el stack en background (compila si hace falta)
 	$(COMPOSE) up -d --build
+
+up-prod: init-volumes render-realm ## Levantar el stack con Caddy + HTTPS (requiere PUBLIC_DOMAIN y DNS apuntando a la VM)
+	@if [ -z "$$PUBLIC_DOMAIN" ] && ! grep -q "^PUBLIC_DOMAIN=" .env 2>/dev/null; then \
+	  echo "ERROR: PUBLIC_DOMAIN no esta definido. Copia .env.example a .env y configura PUBLIC_DOMAIN."; exit 1; \
+	fi
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+down-prod: ## Detener el stack productivo (Caddy + HTTPS)
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml down
 
 build: ## Recompilar imagenes sin levantar
 	$(COMPOSE) build
@@ -69,6 +81,7 @@ urls: ## Mostrar URLs principales del stack
 	@echo "Grafana            http://localhost:3001  (admin/admin)"
 	@echo "Dozzle (logs)      http://localhost:9999"
 	@echo "Portainer          http://localhost:9080"
+	@echo "Redis Commander    http://localhost:8181  (admin/admin)"
 
 reseed-keycloak: ## Recrear la base de Keycloak para forzar reimport del realm (usuarios alice/bob/...)
 	@echo "Deteniendo keycloak y recreando su base de datos..."

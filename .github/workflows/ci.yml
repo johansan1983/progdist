@@ -1,0 +1,58 @@
+name: CI — build & test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  maven:
+    name: Maven build (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - chat-service
+          - user-service
+          - notification-service
+          - worker-service
+          - config-server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build & test
+        working-directory: ${{ matrix.service }}
+        run: mvn -B -ntp verify
+
+  compose-validate:
+    name: docker compose validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Render Keycloak realm
+        run: bash scripts/render-realm.sh
+
+      - name: Validate dev compose
+        run: docker compose config --quiet
+
+      - name: Validate prod compose (with placeholder domain)
+        env:
+          PUBLIC_DOMAIN: example.com
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet

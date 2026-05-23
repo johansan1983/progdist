@@ -96,16 +96,67 @@ No incluye (aun):
 
 ### 4.2 Diagrama de contexto
 
+> **Nota:** SuperChat evolucionó desde el MVP descrito arriba. La arquitectura
+> actual sustituye `auth-service` por **Keycloak** (OAuth2/OIDC), añade
+> **api-gateway**, **user-service**, **notification-service**, **worker-service**,
+> **config-server** y **MinIO**, y promueve Redis a componente activo (rate
+> limiting + presencia). El diagrama y el README reflejan ese estado.
+
 ```mermaid
-flowchart LR
-  U[Usuario en navegador] --> F[Frontend Nginx + JS]
-  F --> A[auth-service]
-  F --> C[chat-service]
-  C --> P[(PostgreSQL)]
-  C --> R[(RabbitMQ)]
-  C --> W[[WebSocket STOMP]]
-  W --> F
-  X[(Redis)] -. listo para evolucion .- C
+flowchart TB
+  Client([Cliente Browser])
+
+  subgraph Edge["Edge / Entrada"]
+    FE["frontend<br/>Nginx + SPA<br/>:3000"]
+    GW["api-gateway<br/>Spring Cloud Gateway<br/>:8090"]
+  end
+
+  KC["keycloak<br/>OAuth2/OIDC<br/>:8080"]
+
+  subgraph Services["Microservicios Spring"]
+    CHAT["chat-service<br/>:8082"]
+    USER["user-service<br/>:8083"]
+    NOTIF["notification-service<br/>:8084"]
+    WORK["worker-service<br/>:8085"]
+  end
+
+  CS["config-server<br/>:8888"]
+
+  subgraph Infra["Infraestructura"]
+    PG[("PostgreSQL<br/>:5432")]
+    RMQ{{"RabbitMQ<br/>:5672 / :61613"}}
+    RD[("Redis<br/>:6379")]
+    MIN["MinIO<br/>:9000"]
+  end
+
+  Client --> FE
+  FE -->|HTTP /api/*| GW
+  FE -.WebSocket STOMP.-> CHAT
+  FE -->|/kc/* login| KC
+  GW -->|JWT validation| KC
+  GW --> CHAT
+  GW --> USER
+  GW --> NOTIF
+  GW --> WORK
+
+  CHAT --> PG
+  USER --> PG
+  NOTIF --> PG
+  CHAT --> MIN
+
+  CHAT -->|publish event| RMQ
+  RMQ -->|chat.messages.queue| WORK
+  RMQ -->|notifications.queue| NOTIF
+  WORK -->|amq.topic relay| RMQ
+
+  GW --> RD
+  CHAT --> RD
+
+  CHAT -.config.-> CS
+  USER -.config.-> CS
+  NOTIF -.config.-> CS
+  WORK -.config.-> CS
+  GW -.config.-> CS
 ```
 
 ---

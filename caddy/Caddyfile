@@ -1,0 +1,25 @@
+# Caddy config para SuperChat en produccion.
+# - Terminacion TLS automatica con Let's Encrypt para {$PUBLIC_DOMAIN}
+# - Reverse proxy a la nginx del frontend (que ya enruta /api, /kc, /ws internamente)
+# - WebSocket pass-through (Caddy lo maneja automaticamente)
+# - Headers de proxy estandar (X-Forwarded-*) para que Keycloak sepa que esta detras de HTTPS
+
+{$PUBLIC_DOMAIN} {
+    encode gzip zstd
+
+    # Direccion del cliente correcta para que el rate limiter del gateway funcione
+    request_header X-Forwarded-Proto https
+
+    reverse_proxy frontend:80 {
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host {host}
+    }
+
+    tls {$ACME_EMAIL}
+}
+
+# Redirigir HTTP -> HTTPS automaticamente (Caddy lo hace por default,
+# pero lo declaramos explicitamente por claridad).
+http://{$PUBLIC_DOMAIN} {
+    redir https://{$PUBLIC_DOMAIN}{uri} permanent
+}

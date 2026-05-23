@@ -33,15 +33,15 @@
       "redirectUris": [
         "http://localhost:3000/*",
         "http://localhost:8090/*",
-        "http://localhost:3000/*",
-        "http://localhost:8090/*",
-        "https://localhost/*",
-        "https://localhost:443/*"
+        "http://${PUBLIC_HOST}:3000/*",
+        "http://${PUBLIC_HOST}:8090/*",
+        "https://${PUBLIC_DOMAIN}/*",
+        "https://${PUBLIC_DOMAIN}:443/*"
       ],
       "webOrigins": ["*"],
       "protocol": "openid-connect",
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:3000/*##https://localhost/*"
+        "post.logout.redirect.uris": "http://localhost:3000/*##http://${PUBLIC_HOST}:3000/*##https://${PUBLIC_DOMAIN}/*"
       }
     }
   ],

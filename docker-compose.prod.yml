@@ -1,0 +1,56 @@
+# Override de docker-compose para produccion con HTTPS via Caddy + Let's Encrypt.
+#
+# Uso:
+#   cp .env.example .env       # editar PUBLIC_DOMAIN y ACME_EMAIL
+#   make up-prod
+#   # o sin Makefile:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Requisitos:
+#   - El dominio definido en PUBLIC_DOMAIN debe resolver via DNS a la IP publica de la VM.
+#   - Puertos 80 y 443 abiertos en firewall del SO y del proveedor (ej. ufw allow 80,443).
+#   - El render de keycloak/superchat-realm.json debe haberse ejecutado con
+#     PUBLIC_DOMAIN seteado (lo hace 'make up-prod' automaticamente).
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?PUBLIC_DOMAIN no definido — copia .env.example a .env}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - frontend-net
+    depends_on:
+      frontend:
+        condition: service_started
+
+  # Quitar el binding al host de los servicios que van detras de Caddy.
+  # Quedan accesibles solo dentro de la red Docker (Caddy los alcanza por DNS interno).
+  frontend:
+    ports: !reset []
+
+  keycloak:
+    ports: !reset []
+    environment:
+      KC_HOSTNAME: https://${PUBLIC_DOMAIN}/kc
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+
+  api-gateway:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

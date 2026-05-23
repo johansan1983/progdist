@@ -86,7 +86,7 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: superchat
       KC_DB_PASSWORD: superchat123
-      KC_HOSTNAME: localhost
+      KC_HOSTNAME: ${PUBLIC_HOST:-localhost}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KEYCLOAK_ADMIN: admin
@@ -379,6 +379,22 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - backend-net
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    restart: always
+    ports:
+      - "8181:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      HTTP_USER: admin
+      HTTP_PASSWORD: admin
+    networks:
+      - backend-net
+    depends_on:
+      redis:
+        condition: service_healthy
 
   portainer:
     image: portainer/portainer-ce:2.21.5

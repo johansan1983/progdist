@@ -24,6 +24,97 @@ Documento de arquitectura para presentación:
 
 ## Arquitectura
 
+```mermaid
+flowchart TB
+  Client([Cliente Browser])
+
+  subgraph Edge["Edge / Entrada"]
+    FE["frontend<br/>Nginx + SPA<br/>:3000"]
+    GW["api-gateway<br/>Spring Cloud Gateway<br/>:8090"]
+  end
+
+  KC["keycloak<br/>OAuth2/OIDC<br/>:8080"]
+
+  subgraph Services["Microservicios Spring"]
+    CHAT["chat-service<br/>:8082"]
+    USER["user-service<br/>:8083"]
+    NOTIF["notification-service<br/>:8084"]
+    WORK["worker-service<br/>:8085"]
+  end
+
+  CS["config-server<br/>:8888"]
+
+  subgraph Infra["Infraestructura"]
+    PG[("PostgreSQL<br/>:5432")]
+    RMQ{{"RabbitMQ<br/>:5672 / :61613"}}
+    RD[("Redis<br/>:6379")]
+    MIN["MinIO<br/>:9000"]
+  end
+
+  Client --> FE
+  FE -->|HTTP /api/*| GW
+  FE -.WebSocket STOMP.-> CHAT
+  FE -->|/kc/* login| KC
+  GW -->|JWT validation| KC
+  GW --> CHAT
+  GW --> USER
+  GW --> NOTIF
+  GW --> WORK
+
+  CHAT --> PG
+  USER --> PG
+  NOTIF --> PG
+  CHAT --> MIN
+
+  CHAT -->|publish event| RMQ
+  RMQ -->|chat.messages.queue| WORK
+  RMQ -->|notifications.queue| NOTIF
+  WORK -->|amq.topic relay| RMQ
+
+  GW --> RD
+  CHAT --> RD
+
+  CHAT -.config.-> CS
+  USER -.config.-> CS
+  NOTIF -.config.-> CS
+  WORK -.config.-> CS
+  GW -.config.-> CS
+```
+
+### Flujo de un mensaje en tiempo real
+
+```mermaid
+sequenceDiagram
+  actor U as Usuario
+  participant FE as Frontend
+  participant GW as API Gateway
+  participant CH as chat-service
+  participant DB as PostgreSQL
+  participant MQ as RabbitMQ
+  participant W as worker-service
+  participant N as notification-service
+
+  U->>FE: Escribe mensaje
+  FE->>GW: POST /api/chat/messages (JWT)
+  GW->>GW: Valida JWT + rate limit (Redis)
+  GW->>CH: forward
+  CH->>DB: INSERT chat_message
+  CH->>MQ: publish chat.message.created
+  CH->>MQ: publish notifications.message.created
+  CH-->>GW: 201 Created
+  GW-->>FE: 201 Created
+
+  par Entrega tiempo real
+    MQ->>W: chat.messages.queue
+    W->>MQ: amq.topic /topic/conversations/{id}
+    MQ-->>FE: WebSocket STOMP
+    FE-->>U: render mensaje en vivo
+  and Notificación persistente
+    MQ->>N: notifications.queue
+    N->>DB: INSERT notification
+  end
+```
+
 | Servicio | Puerto | Rol |
 |---|---|---|
 | `keycloak` | 8080 | Proveedor de identidad (OAuth2/OIDC, JWT) |
@@ -42,6 +133,7 @@ Documento de arquitectura para presentación:
 | `grafana` | 3001 | Dashboards |
 | `dozzle` | 9999 | Visor de logs de contenedores |
 | `portainer` | 9080 | UI de administración de contenedores Docker |
+| `redis-commander` | 8181 | UI web para inspeccionar claves de Redis (admin/admin) |
 
 Flujo principal de mensaje en tiempo real:
 
@@ -56,23 +148,61 @@ Flujo principal de mensaje en tiempo real:
 
 ## Despliegue desde cero con un solo comando
 
-Si tienes una WSL2 (Ubuntu/Debian) o un Linux apt-based recién creado **sin nada instalado**, todo el sistema se levanta con:
+Funciona en una WSL2 (Ubuntu/Debian) o un Linux apt-based recién creado **sin nada instalado** (ni `git`, ni `docker`, ni `make`).
+
+### Opción A — One-liner remoto (estilo Vercel)
+
+Pega esto en cualquier WSL2 / VM Ubuntu/Debian limpia. No requiere ni siquiera `git` (sólo `curl`):
 
 ```bash
-git clone <url-del-repo> && cd progdist
+curl -fsSL https://raw.githubusercontent.com/johansan1983/progdist/main/scripts/install.sh | bash
+```
+
+Esto descarga `install.sh`, instala `curl`+`git`, clona el repo en `~/progdist` y lanza el bootstrap (que instala Docker y levanta el stack).
+
+Variables opcionales:
+
+```bash
+# Cambiar el directorio destino
+curl -fsSL https://raw.githubusercontent.com/johansan1983/progdist/main/scripts/install.sh | INSTALL_DIR=/opt/progdist bash
+
+# Solo instalar deps + clonar, sin levantar el stack
+curl -fsSL https://raw.githubusercontent.com/johansan1983/progdist/main/scripts/install.sh | NO_UP=1 bash
+```
+
+### Opción B — Con `git` ya instalado
+
+```bash
+git clone https://github.com/johansan1983/progdist.git && cd progdist
 make bootstrap
 ```
 
-O equivalentemente:
+### Opción C — Tarball sin `git`
 
 ```bash
-bash scripts/bootstrap.sh
+curl -fsSL https://github.com/johansan1983/progdist/archive/refs/heads/main.tar.gz | tar -xz
+cd progdist-main && bash scripts/bootstrap.sh
 ```
 
-`scripts/bootstrap.sh` hace todo de punta a punta:
+Si ni siquiera hay `curl`:
+```bash
+sudo apt-get update && sudo apt-get install -y curl
+```
+
+Alternativa one-shot vía SSH desde tu máquina (sin acceso al servidor por terminal):
+```bash
+# Copia el repo comprimido al servidor y ejecuta bootstrap
+tar czf /tmp/progdist.tgz -C $(pwd)/.. progdist
+scp /tmp/progdist.tgz user@server:/tmp/
+ssh user@server 'cd /opt && sudo tar xzf /tmp/progdist.tgz && cd progdist && bash scripts/bootstrap.sh'
+```
+
+### Qué hace el bootstrap
+
+`scripts/bootstrap.sh` hace todo de punta a punta de forma idempotente:
 
 1. Detecta el SO y si está corriendo dentro de WSL2.
-2. Instala dependencias del sistema (`curl`, `gpg`, `make`, `ca-certificates`).
+2. Instala dependencias del sistema (`curl`, `gpg`, **`git`**, `make`, `ca-certificates`).
 3. Instala Docker Engine + Docker Compose v2 desde el repo oficial de Docker (si no estaban).
 4. Arranca el daemon de Docker (systemd, `service` o `dockerd` directo según lo que aplique).
 5. Agrega el usuario actual al grupo `docker`.
@@ -81,10 +211,11 @@ bash scripts/bootstrap.sh
 8. Espera a que Keycloak esté listo (~90–120s en el primer arranque).
 9. Imprime las URLs, credenciales y usuarios precargados.
 
-Es idempotente: se puede re-ejecutar sin romper nada. Si sólo quieres instalar deps sin levantar el stack:
+Flags útiles:
 
 ```bash
-bash scripts/bootstrap.sh --no-up
+bash scripts/bootstrap.sh --no-up           # solo instalar deps
+bash scripts/bootstrap.sh --open-firewall   # abre puertos del stack en ufw si esta activo
 ```
 
 > **WSL2 sin systemd:** si el daemon no arranca, habilita systemd creando `/etc/wsl.conf` con
@@ -93,6 +224,70 @@ bash scripts/bootstrap.sh --no-up
 > systemd=true
 > ```
 > y luego desde Windows: `wsl --shutdown`. El script lo detecta y te avisa si falta.
+
+## Configuración por entorno (.env)
+
+Para escenarios donde el stack se accede desde fuera del host (otra máquina en la red, internet) hay que parametrizar el hostname público. Copia el ejemplo:
+
+```bash
+cp .env.example .env
+```
+
+Variables disponibles:
+
+| Variable | Default | Uso |
+|---|---|---|
+| `PUBLIC_HOST` | `localhost` | IP o hostname para acceso plano por HTTP. Se inyecta en `KC_HOSTNAME` y en los `redirectUris` del realm de Keycloak |
+| `PUBLIC_DOMAIN` | `localhost` | Dominio público (con DNS apuntando a la VM) para el perfil productivo con HTTPS via Caddy |
+| `ACME_EMAIL` | *(vacío)* | Email para Let's Encrypt — recibe avisos de expiración |
+
+El script `scripts/render-realm.sh` (también ejecutable con `make render-realm`) regenera `keycloak/superchat-realm.json` desde su template aplicando estas variables. `make up` y `make bootstrap` ya lo invocan automáticamente.
+
+### Ejemplo: VM local accedida desde otra máquina
+
+```bash
+echo "PUBLIC_HOST=10.0.0.50" > .env
+make up
+# Login con alice/demo123 desde http://10.0.0.50:3000 funciona porque
+# el realm ahora acepta redirectUris con 10.0.0.50.
+```
+
+## Despliegue productivo con HTTPS (Caddy + Let's Encrypt)
+
+`docker-compose.prod.yml` añade un Caddy al frente que:
+- Termina TLS y obtiene certificados de Let's Encrypt automáticamente
+- Hace reverse proxy al nginx del frontend (que ya enruta `/api`, `/kc`, `/ws` internamente)
+- Deja `Caddy` como **único** servicio con puertos expuestos al host (80/443) — el resto queda accesible sólo dentro de la red Docker
+
+### Pasos
+
+1. Apuntar el dominio (DNS A o AAAA) a la IP pública de la VM.
+2. Configurar `.env`:
+   ```bash
+   cp .env.example .env
+   # Editar:
+   #   PUBLIC_DOMAIN=chat.example.com
+   #   ACME_EMAIL=tu@correo.com
+   ```
+3. Abrir 80/443 en firewall (proveedor cloud y `ufw`).
+4. Levantar:
+   ```bash
+   make up-prod
+   # equivalente a:
+   # docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+   ```
+5. Caddy obtiene el cert TLS automáticamente en el primer hit (puede tardar 10-30s la primera vez).
+
+Después, el frontend está en `https://chat.example.com` con HTTPS automáticamente renovado. Las herramientas administrativas (Portainer, Dozzle, Grafana, Prometheus, RabbitMQ Management) siguen bindeadas a sus puertos por separado — recomendado **no** exponerlas públicamente y acceder via SSH tunnel:
+
+```bash
+ssh -L 9080:localhost:9080 -L 9999:localhost:9999 -L 3001:localhost:3001 user@chat.example.com
+```
+
+Para bajar el perfil productivo:
+```bash
+make down-prod
+```
 
 ---
 
@@ -220,10 +415,33 @@ docker compose ps
 | http://localhost:3001 | Grafana | admin / admin |
 | http://localhost:9999 | Dozzle (logs) | — |
 | http://localhost:9080 | Portainer | (crear admin en el primer acceso) |
+| http://localhost:8181 | Redis Commander | admin / admin |
 | http://localhost:8082/docs | Chat Swagger | — |
 | http://localhost:8083/docs | User Swagger | — |
 | http://localhost:8084/docs | Notification Swagger | — |
 | http://localhost:8085/docs | Worker Swagger | — |
+
+## CI/CD con GitHub Actions
+
+El repo trae dos workflows en `.github/workflows/`:
+
+| Workflow | Trigger | Qué hace |
+|---|---|---|
+| `ci.yml` | push/PR a `main` | Compila y testea (`mvn -B verify`) los 6 servicios Spring en paralelo (matrix), y valida que `docker-compose.yml` + `docker-compose.prod.yml` sean sintácticamente correctos |
+| `docker-publish.yml` | push a `main` y tags `v*` | Construye las 7 imágenes Docker (6 Spring + frontend) con Buildx y las publica a **GitHub Container Registry** (`ghcr.io/johansan1983/progdist-<servicio>`). Caché de capas vía GHA cache |
+
+Las imágenes publicadas quedan accesibles en `https://github.com/johansan1983/progdist/pkgs/container/...` y se pueden tirar directamente sin construir local:
+
+```bash
+docker pull ghcr.io/johansan1983/progdist-chat-service:latest
+```
+
+Tags generados por cada push a `main`:
+- `latest` (siempre apunta al último build de main)
+- `main`
+- `<sha-corto>` (ej. `a1b2c3d`)
+
+Para versiones, basta crear un tag git `v1.0.0` y se publica también con tag semver.
 
 ## Troubleshooting rápido
 
