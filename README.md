@@ -225,6 +225,41 @@ bash scripts/bootstrap.sh --open-firewall   # abre puertos del stack en ufw si e
 > ```
 > y luego desde Windows: `wsl --shutdown`. El script lo detecta y te avisa si falta.
 
+### Caveats validados en testing real
+
+Probamos el despliegue desde una WSL2 limpia tanto de Ubuntu 24.04 como de Debian 13 (Trixie). Lo que aprendimos:
+
+**Debian 13 minimal viene sin `curl`.** El one-liner remoto necesita `curl`. Si la WSL es Debian recién instalada, instálalo primero:
+```bash
+sudo apt-get update && sudo apt-get install -y curl
+```
+Ubuntu 24.04 sí trae `curl` por defecto.
+
+**DNS intermitente en WSL Debian con `containerd`.** El resolver por defecto (`10.255.255.254`) a veces falla en UDP/IPv4 para `containerd` al descargar layers de Docker Hub / Cloudflare, mientras que `getent hosts` funciona vía IPv6. Síntoma típico:
+```
+failed to copy: ... lookup production.cloudflare.docker.com on 10.255.255.254:53: read udp ... i/o timeout
+```
+Fix puntual (añade DNS público a la WSL Debian):
+```bash
+sudo rm /etc/resolv.conf
+sudo tee /etc/resolv.conf <<EOF
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+nameserver 10.255.255.254
+EOF
+sudo chattr +i /etc/resolv.conf  # evita regeneración
+sudo systemctl restart docker
+```
+Ubuntu 24.04 en WSL no presentó este problema en nuestras pruebas.
+
+**RAM total.** El stack pide ~6-8 GB de RAM. WSL2 toma por defecto ~50% del host. Si vas justo, define en `%USERPROFILE%\.wslconfig`:
+```ini
+[wsl2]
+memory=10GB
+processors=4
+```
+y reinicia con `wsl --shutdown`.
+
 ## Configuración por entorno (.env)
 
 Para escenarios donde el stack se accede desde fuera del host (otra máquina en la red, internet) hay que parametrizar el hostname público. Copia el ejemplo:
