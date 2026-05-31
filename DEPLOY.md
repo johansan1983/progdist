@@ -65,8 +65,21 @@ cd progdist
 ## Step 3 — Deploy (one command)
 
 **Windows (PowerShell):**
+
 ```powershell
 .\deploy.ps1
+```
+
+If you see *"la ejecución de scripts está deshabilitada"* / *"running scripts is disabled on this system"*, PowerShell's default policy is blocking local scripts. Either run it once without changing anything:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+```
+
+or allow your own local scripts permanently (no admin required), then run `.\deploy.ps1`:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
 **Linux / macOS:**
@@ -162,6 +175,7 @@ DNS for the domain must resolve to the host before Caddy can issue the certifica
 
 | Symptom | Fix |
 |---|---|
+| `running scripts is disabled` / `ejecución de scripts está deshabilitada` (Windows) | PowerShell policy blocks local scripts. Run `powershell -ExecutionPolicy Bypass -File .\deploy.ps1`, or `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once. |
 | `docker: command not found` | Docker isn't installed / not on PATH — redo Step 1. |
 | `permission denied … docker.sock` (Linux) | Run `sudo usermod -aG docker $USER` then log out/in. |
 | `port is already allocated` | Another process uses 3000/8080/5432/… — stop it, or change the published port in `docker-compose.yml`. |
