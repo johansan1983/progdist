@@ -24,6 +24,9 @@ jobs:
           - notification-service
           - worker-service
           - config-server
+          - admin-service
+          - moderation-service
+          - compliance-service
     steps:
       - name: Checkout
         uses: actions/checkout@v4

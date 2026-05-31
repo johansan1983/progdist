@@ -36,6 +36,13 @@ public class RabbitConfig {
         return BindingBuilder.bind(chatQueue).to(chatExchange).with(routingKey);
     }
 
+    // ── Audit — declare exchange so compliance-service consumer connects cleanly ──
+
+    @Bean
+    TopicExchange auditExchange() {
+        return new TopicExchange("audit.exchange", true, false);
+    }
+
     // ── Notifications — declared here so the exchange/queue exist before
     //    notification-service starts (declarations are idempotent in RabbitMQ) ──
 

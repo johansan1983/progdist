@@ -28,6 +28,18 @@ public class UserProfile {
     @Column(length = 500)
     private String bio;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "org_id")
+    private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dept_id")
+    private Department department;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "system_role", nullable = false, length = 20)
+    private SystemRole systemRole = SystemRole.USER;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -47,5 +59,11 @@ public class UserProfile {
     public void setStatus(OnlineStatus status) { this.status = status; }
     public String getBio() { return bio; }
     public void setBio(String bio) { this.bio = bio; }
+    public Organization getOrganization() { return organization; }
+    public void setOrganization(Organization organization) { this.organization = organization; }
+    public Department getDepartment() { return department; }
+    public void setDepartment(Department department) { this.department = department; }
+    public SystemRole getSystemRole() { return systemRole; }
+    public void setSystemRole(SystemRole systemRole) { this.systemRole = systemRole; }
     public Instant getCreatedAt() { return createdAt; }
 }

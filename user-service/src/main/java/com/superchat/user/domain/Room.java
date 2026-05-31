@@ -21,6 +21,18 @@ public class Room {
     @Column(nullable = false, length = 20)
     private RoomType type = RoomType.PUBLIC;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "org_id")
+    private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dept_id")
+    private Department department;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "channel_type", nullable = false, length = 20)
+    private ChannelType channelType = ChannelType.GENERAL;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -36,5 +48,11 @@ public class Room {
     public void setDescription(String description) { this.description = description; }
     public RoomType getType() { return type; }
     public void setType(RoomType type) { this.type = type; }
+    public Organization getOrganization() { return organization; }
+    public void setOrganization(Organization organization) { this.organization = organization; }
+    public Department getDepartment() { return department; }
+    public void setDepartment(Department department) { this.department = department; }
+    public ChannelType getChannelType() { return channelType; }
+    public void setChannelType(ChannelType channelType) { this.channelType = channelType; }
     public Instant getCreatedAt() { return createdAt; }
 }

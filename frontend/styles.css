@@ -5,6 +5,7 @@
   --muted: #4d635d;
   --accent: #0f8f7c;
   --accent-2: #17b48d;
+  --accent-strong: #0a7567; /* AA-contrast accent for small text on white */
   --edge: #dde7e3;
   --danger: #b91c1c;
 }
@@ -576,7 +577,7 @@ button:hover {
   align-items: center;
   gap: 0.3rem;
   margin-top: 0.4rem;
-  color: var(--accent);
+  color: var(--accent-strong);
   text-decoration: none;
   font-size: 0.9rem;
 }
@@ -797,4 +798,175 @@ button:hover {
   color: var(--muted);
   margin-top: 4px;
   font-style: italic;
+}
+
+/* ── Consent modal ─────────────────────────────────────────────────────────── */
+/* Scoped to #consentModal only — must NOT leak into .modal-box (DM modal, lightbox). */
+#consentModal {
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9000;
+  padding: 24px;
+}
+
+.consent-box {
+  max-width: 480px;
+  text-align: left;
+}
+
+.consent-box h2 {
+  font-size: 1.2rem;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+
+.consent-box p,
+.consent-box li {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.consent-box ul {
+  padding-left: 20px;
+  margin-bottom: 14px;
+}
+
+.consent-version {
+  font-size: 0.8rem;
+  margin-top: 10px;
+  margin-bottom: 20px;
+}
+
+.consent-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Business rules notice banner ─────────────────────────────────────────── */
+.rules-notice {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #713f12;
+  color: #fde68a;
+  border: 1px solid #92400e;
+  border-radius: 8px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 8000;
+  max-width: 480px;
+  font-size: 0.875rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+
+.rules-notice button {
+  background: none;
+  border: none;
+  color: #fde68a;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1;
+}
+
+/* ── Message alignment (own vs others) ────────────────────────────────────── */
+.msg {
+  max-width: 72%;
+  align-self: flex-start;
+}
+
+.msg-own {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: #fff;
+  transform-origin: right bottom;
+}
+
+.msg-own .meta {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.msg-own .msg-file {
+  color: #eafff9;
+}
+
+.msg-own .view-once-countdown,
+.msg-own .msg-view-once-expired {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ── Accessible focus ring ────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+button:focus-visible {
+  outline-offset: 3px;
+}
+
+/* ── Empty states ─────────────────────────────────────────────────────────── */
+.empty-state {
+  margin: auto;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.empty-state .empty-emoji {
+  display: block;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.8;
+}
+.conv-empty {
+  padding: 1.2rem 0.8rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ── Date dividers ────────────────────────────────────────────────────────── */
+.date-divider {
+  align-self: center;
+  margin: 0.4rem 0;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in srgb, #ffffff 70%, var(--edge) 30%);
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+}
+
+/* ── Language switcher ────────────────────────────────────────────────────── */
+.lang-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.lang-switcher select {
+  width: auto;
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--edge);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.auth-lang {
+  margin-top: 1rem;
+  justify-content: center;
+  width: 100%;
 }

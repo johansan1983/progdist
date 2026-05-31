@@ -1,6 +1,8 @@
 package com.superchat.user.service;
 
 import com.superchat.user.domain.*;
+import com.superchat.user.repo.DepartmentRepository;
+import com.superchat.user.repo.OrganizationRepository;
 import com.superchat.user.repo.RoomMemberRepository;
 import com.superchat.user.repo.RoomRepository;
 import com.superchat.user.repo.UserProfileRepository;
@@ -18,21 +20,37 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final RoomMemberRepository memberRepository;
     private final UserProfileRepository profileRepository;
+    private final OrganizationRepository orgRepository;
+    private final DepartmentRepository deptRepository;
 
     public RoomService(RoomRepository roomRepository,
                        RoomMemberRepository memberRepository,
-                       UserProfileRepository profileRepository) {
+                       UserProfileRepository profileRepository,
+                       OrganizationRepository orgRepository,
+                       DepartmentRepository deptRepository) {
         this.roomRepository = roomRepository;
         this.memberRepository = memberRepository;
         this.profileRepository = profileRepository;
+        this.orgRepository = orgRepository;
+        this.deptRepository = deptRepository;
     }
 
     @Transactional
-    public Room createRoom(String name, String description, RoomType type, String creatorKeycloakId) {
+    public Room createRoom(String name, String description, RoomType type, String creatorKeycloakId,
+                           ChannelType channelType, UUID orgId, UUID deptId) {
         Room room = new Room();
         room.setName(name);
         room.setDescription(description);
         room.setType(type != null ? type : RoomType.PUBLIC);
+        room.setChannelType(channelType != null ? channelType : ChannelType.GENERAL);
+        if (orgId != null) {
+            room.setOrganization(orgRepository.findById(orgId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found")));
+        }
+        if (deptId != null) {
+            room.setDepartment(deptRepository.findById(deptId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Department not found")));
+        }
         Room saved = roomRepository.save(room);
 
         UserProfile creator = profileRepository.findByKeycloakId(creatorKeycloakId)

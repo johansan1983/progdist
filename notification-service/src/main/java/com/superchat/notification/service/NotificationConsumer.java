@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.superchat.notification.domain.Notification;
 import com.superchat.notification.domain.NotificationType;
 import com.superchat.notification.repo.NotificationRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -20,10 +22,15 @@ public class NotificationConsumer {
 
     private final NotificationRepository repository;
     private final ObjectMapper objectMapper;
+    private final Counter deliveredCounter;
 
-    public NotificationConsumer(NotificationRepository repository, ObjectMapper objectMapper) {
+    public NotificationConsumer(NotificationRepository repository, ObjectMapper objectMapper,
+                                MeterRegistry meterRegistry) {
         this.repository = repository;
         this.objectMapper = objectMapper;
+        this.deliveredCounter = Counter.builder("superchat.notifications.delivered")
+                .description("Total notifications persisted from RabbitMQ events")
+                .register(meterRegistry);
     }
 
     @RabbitListener(queues = "${notifications.rabbit.queue:notifications.queue}")
@@ -42,6 +49,7 @@ public class NotificationConsumer {
             notification.setPayload(payload);
 
             repository.save(notification);
+            deliveredCounter.increment();
             log.info("[Worker] saved notification for sender={} messageId={}", sender, event.get("messageId"));
         } catch (Exception e) {
             log.error("Failed to process notification event: {}", event, e);

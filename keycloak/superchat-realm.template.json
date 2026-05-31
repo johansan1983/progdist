@@ -15,8 +15,10 @@
   "ssoSessionMaxLifespan": 36000,
   "roles": {
     "realm": [
-      { "name": "user", "description": "Standard user role" },
-      { "name": "admin", "description": "Administrator role" }
+      { "name": "user",           "description": "Standard user role" },
+      { "name": "admin",          "description": "Legacy administrator role" },
+      { "name": "org_admin",      "description": "Organization administrator — manages users, rules, moderation within their org" },
+      { "name": "platform_admin", "description": "Platform administrator — manages all organizations and platform-wide settings" }
     ]
   },
   "defaultRoles": ["user"],

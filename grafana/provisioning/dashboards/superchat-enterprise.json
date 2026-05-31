@@ -1,0 +1,219 @@
+{
+  "title": "SuperChat Enterprise",
+  "uid": "superchat-enterprise",
+  "version": 1,
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["superchat", "enterprise"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Messages sent / min",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum by (channel_type) (rate(superchat_messages_sent_total[1m]) * 60)",
+          "legendFormat": "{{channel_type}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Messages by conversation type",
+      "type": "piechart",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "pieType": "pie", "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum by (conv_type) (increase(superchat_messages_sent_total[1h]))",
+          "legendFormat": "{{conv_type}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Total messages (1h)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1000 },
+            { "color": "red", "value": 5000 }
+          ]
+        }}
+      },
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "sum(increase(superchat_messages_sent_total[1h]))",
+          "legendFormat": "Messages",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Blocked messages (1h)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 4, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 5 },
+            { "color": "red", "value": 20 }
+          ]
+        }}
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "sum(increase(superchat_moderation_incidents_total{action=\"BLOCK\"}[1h]))",
+          "legendFormat": "Blocked",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Moderation incidents / min",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "BLOCK" },  "properties": [{ "id": "color", "value": { "fixedColor": "red",    "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "REPLACE" },"properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "WARN" },   "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum by (action) (rate(superchat_moderation_incidents_total[1m]) * 60)",
+          "legendFormat": "{{action}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Incident breakdown (1h)",
+      "type": "bargauge",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0 },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "BLOCK" },  "properties": [{ "id": "color", "value": { "fixedColor": "red",    "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "REPLACE" },"properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "WARN" },   "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "sum by (action) (increase(superchat_moderation_incidents_total[1h]))",
+          "legendFormat": "{{action}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "API Gateway — request rate",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{job=~\".*chat.*|.*user.*|.*notification.*\"}[1m]) * 60)",
+          "legendFormat": "{{uri}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "JVM Heap — all services",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\"}",
+          "legendFormat": "{{job}} – {{id}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "HTTP error rate (5xx)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null },
+          { "color": "red", "value": 0.01 }
+        ]}, "custom": { "lineWidth": 2 } }
+      },
+      "targets": [
+        {
+          "expr": "sum by (job) (rate(http_server_requests_seconds_count{status=~\"5..\"}[1m]))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "p99 response time — chat-service",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, uri) (rate(http_server_requests_seconds_bucket{job=\"chat-service\"}[5m])))",
+          "legendFormat": "p99 {{uri}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Notifications delivered / min",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
+      "targets": [
+        {
+          "expr": "rate(superchat_notifications_delivered_total[1m]) * 60",
+          "legendFormat": "delivered/min",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

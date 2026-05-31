@@ -39,6 +39,9 @@ public class Conversation {
     @Column(name = "dm_participant_b_name", length = 120)
     private String dmParticipantBName;
 
+    @Column(name = "channel_type", nullable = false, length = 20)
+    private String channelType = "GENERAL";
+
     @PrePersist
     void onCreate() { this.createdAt = Instant.now(); }
 
@@ -57,4 +60,6 @@ public class Conversation {
     public void setDmParticipantAName(String dmParticipantAName) { this.dmParticipantAName = dmParticipantAName; }
     public String getDmParticipantBName() { return dmParticipantBName; }
     public void setDmParticipantBName(String dmParticipantBName) { this.dmParticipantBName = dmParticipantBName; }
+    public String getChannelType() { return channelType; }
+    public void setChannelType(String channelType) { this.channelType = channelType; }
 }

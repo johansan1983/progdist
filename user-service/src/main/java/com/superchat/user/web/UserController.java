@@ -61,15 +61,18 @@ public class UserController {
     }
 
     private Map<String, Object> toMap(UserProfile p) {
-        return Map.of(
-                "id", p.getId(),
-                "keycloakId", p.getKeycloakId(),
-                "displayName", p.getDisplayName() != null ? p.getDisplayName() : "",
-                "avatarUrl", p.getAvatarUrl() != null ? p.getAvatarUrl() : "",
-                "status", p.getStatus().name(),
-                "bio", p.getBio() != null ? p.getBio() : "",
-                "createdAt", p.getCreatedAt().toString()
-        );
+        var map = new java.util.LinkedHashMap<String, Object>();
+        map.put("id", p.getId());
+        map.put("keycloakId", p.getKeycloakId());
+        map.put("displayName", p.getDisplayName() != null ? p.getDisplayName() : "");
+        map.put("avatarUrl", p.getAvatarUrl() != null ? p.getAvatarUrl() : "");
+        map.put("status", p.getStatus().name());
+        map.put("bio", p.getBio() != null ? p.getBio() : "");
+        map.put("systemRole", p.getSystemRole().name());
+        map.put("orgId", p.getOrganization() != null ? p.getOrganization().getId() : null);
+        map.put("deptId", p.getDepartment() != null ? p.getDepartment().getId() : null);
+        map.put("createdAt", p.getCreatedAt().toString());
+        return map;
     }
 
     public record UpdateProfileRequest(String displayName, String avatarUrl, String status, String bio) {}

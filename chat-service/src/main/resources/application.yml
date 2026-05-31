@@ -60,7 +60,38 @@ spring:
     virtual:
       enabled: true
 
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50          # open when >=50% of the last 10 calls fail
+        wait-duration-in-open-state: 10s    # then probe again (half-open)
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+    instances:
+      moderation:
+        base-config: default
+      businessRules:
+        base-config: default
+
+internal:
+  api:
+    token: ${INTERNAL_API_TOKEN:internal-secret}
+
+moderation:
+  service:
+    url: ${MODERATION_SERVICE_URL:http://moderation-service:8087}
+
+admin:
+  service:
+    url: ${ADMIN_SERVICE_URL:http://admin-service:8086}
+
 chat:
+  encryption:
+    key: ${AES_ENCRYPTION_KEY:00000000000000000000000000000000000000000000000000000000000000ff}
   rabbit:
     exchange: ${CHAT_EXCHANGE:chat.exchange}
     queue: ${CHAT_QUEUE:chat.messages.queue}
@@ -84,9 +115,9 @@ management:
     health:
       probes:
         enabled: true
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true
 
 springdoc:

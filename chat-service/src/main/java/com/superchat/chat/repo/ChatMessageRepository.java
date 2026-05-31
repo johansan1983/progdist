@@ -14,8 +14,20 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     Page<ChatMessage> findByConversationId(Long conversationId, Pageable pageable);
 
+    Page<ChatMessage> findBySenderOrderByCreatedAtDesc(String sender, Pageable pageable);
+
     @Modifying
     @Transactional
     @Query("UPDATE ChatMessage m SET m.viewed = true WHERE m.id = :id AND m.viewed = false")
     int markViewed(@Param("id") Long id);
+
+    /**
+     * GDPR erasure: null out the encrypted content/attachment columns (decryption
+     * tolerates null) and replace sender identifiers with a tombstone marker.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE ChatMessage m SET m.content = NULL, m.attachmentUrl = NULL, " +
+           "m.sender = '[deleted]', m.senderName = '[deleted]' WHERE m.sender = :userId")
+    int anonymizeBySender(@Param("userId") String userId);
 }

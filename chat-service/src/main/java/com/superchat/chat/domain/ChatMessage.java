@@ -2,7 +2,9 @@ package com.superchat.chat.domain;
 
 import java.time.Instant;
 
+import com.superchat.chat.config.EncryptionConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -25,6 +27,7 @@ public class ChatMessage {
     @JoinColumn(name = "conversation_id", nullable = false)
     private Conversation conversation;
 
+    @Convert(converter = EncryptionConverter.class)
     @Column(length = 2000)
     private String content;
 
@@ -34,6 +37,7 @@ public class ChatMessage {
     @Column(length = 120)
     private String senderName;
 
+    @Convert(converter = EncryptionConverter.class)
     @Column(length = 512)
     private String attachmentUrl;
 

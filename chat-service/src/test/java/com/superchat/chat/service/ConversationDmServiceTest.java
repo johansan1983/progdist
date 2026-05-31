@@ -10,7 +10,6 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import com.superchat.chat.domain.Conversation;
 import com.superchat.chat.repo.ChatMessageRepository;
@@ -26,10 +25,17 @@ class ConversationDmServiceTest {
     void setUp() {
         conversationRepository = mock(ConversationRepository.class);
         messageRepository = mock(ChatMessageRepository.class);
+        ModerationClient moderationClient = mock(ModerationClient.class);
+        when(moderationClient.check(any(), any(), any(), any()))
+                .thenReturn(new ModerationClient.CheckResult("PASS", "content"));
+
+        BusinessRuleClient businessRuleClient = mock(BusinessRuleClient.class);
+        when(businessRuleClient.getRules(any())).thenReturn(java.util.Map.of());
+
         chatService = new ChatService(
-                conversationRepository, messageRepository, mock(RabbitTemplate.class),
-                "chat.exchange", "chat.routing.key",
-                "notifications.exchange", "notifications.message.created"
+                conversationRepository, messageRepository,
+                moderationClient, mock(AuditEventPublisher.class), businessRuleClient,
+                mock(MessagePersistenceService.class)
         );
     }
 

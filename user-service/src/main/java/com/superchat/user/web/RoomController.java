@@ -1,8 +1,6 @@
 package com.superchat.user.web;
 
-import com.superchat.user.domain.Room;
-import com.superchat.user.domain.RoomMember;
-import com.superchat.user.domain.RoomType;
+import com.superchat.user.domain.*;
 import com.superchat.user.service.RoomService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -28,7 +26,10 @@ public class RoomController {
             @RequestBody CreateRoomRequest request
     ) {
         RoomType type = request.type() != null ? RoomType.valueOf(request.type()) : RoomType.PUBLIC;
-        Room room = service.createRoom(request.name(), request.description(), type, authentication.getName());
+        ChannelType channelType = request.channelType() != null ? ChannelType.valueOf(request.channelType()) : ChannelType.GENERAL;
+        java.util.UUID orgId = request.orgId() != null ? java.util.UUID.fromString(request.orgId()) : null;
+        java.util.UUID deptId = request.deptId() != null ? java.util.UUID.fromString(request.deptId()) : null;
+        Room room = service.createRoom(request.name(), request.description(), type, authentication.getName(), channelType, orgId, deptId);
         return ResponseEntity.ok(toMap(room));
     }
 
@@ -52,13 +53,16 @@ public class RoomController {
     }
 
     private Map<String, Object> toMap(Room r) {
-        return Map.of(
-                "id", r.getId(),
-                "name", r.getName(),
-                "description", r.getDescription() != null ? r.getDescription() : "",
-                "type", r.getType().name(),
-                "createdAt", r.getCreatedAt().toString()
-        );
+        var map = new java.util.LinkedHashMap<String, Object>();
+        map.put("id", r.getId());
+        map.put("name", r.getName());
+        map.put("description", r.getDescription() != null ? r.getDescription() : "");
+        map.put("type", r.getType().name());
+        map.put("channelType", r.getChannelType().name());
+        map.put("orgId", r.getOrganization() != null ? r.getOrganization().getId() : null);
+        map.put("deptId", r.getDepartment() != null ? r.getDepartment().getId() : null);
+        map.put("createdAt", r.getCreatedAt().toString());
+        return map;
     }
 
     private Map<String, Object> memberToMap(RoomMember m) {
@@ -70,6 +74,6 @@ public class RoomController {
         );
     }
 
-    public record CreateRoomRequest(String name, String description, String type) {}
+    public record CreateRoomRequest(String name, String description, String type, String channelType, String orgId, String deptId) {}
     public record AddMemberRequest(String userId) {}
 }

@@ -19,29 +19,32 @@ import com.superchat.chat.domain.Conversation;
 import com.superchat.chat.repo.ChatMessageRepository;
 import com.superchat.chat.repo.ConversationRepository;
 
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 class ChatServiceTest {
 
     private ChatService chatService;
     private ChatMessageRepository messageRepository;
     private ConversationRepository conversationRepository;
-    private RabbitTemplate rabbitTemplate;
 
     @BeforeEach
     void setUp() {
         messageRepository = mock(ChatMessageRepository.class);
         conversationRepository = mock(ConversationRepository.class);
-        rabbitTemplate = mock(RabbitTemplate.class);
+
+        ModerationClient moderationClient = mock(ModerationClient.class);
+        when(moderationClient.check(any(), any(), any(), any()))
+                .thenReturn(new ModerationClient.CheckResult("PASS", "content"));
+
+        BusinessRuleClient businessRuleClient = mock(BusinessRuleClient.class);
+        when(businessRuleClient.getRules(any())).thenReturn(java.util.Map.of());
 
         chatService = new ChatService(
                 conversationRepository,
                 messageRepository,
-                rabbitTemplate,
-                "chat.exchange",
-                "chat.routing.key",
-                "notifications.exchange",
-                "notifications.message.created"
+                moderationClient,
+                mock(AuditEventPublisher.class),
+                businessRuleClient,
+                mock(MessagePersistenceService.class)
         );
     }
 

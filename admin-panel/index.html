@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuperChat Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ── Auth panel ──────────────────────────────────────────────────────────── -->
+<div id="authPanel">
+  <div class="auth-box">
+    <h1>SuperChat Admin</h1>
+    <p class="auth-subtitle">Sign in with your administrator account</p>
+    <form id="loginForm">
+      <label for="username">Username</label>
+      <input id="username" type="text" autocomplete="username" placeholder="admin" required />
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+      <button type="submit" id="loginBtn">Sign in</button>
+      <p id="authError" class="error hidden"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ── Admin panel ─────────────────────────────────────────────────────────── -->
+<div id="adminPanel" class="hidden">
+
+  <!-- Header -->
+  <header class="admin-header">
+    <div class="header-left">
+      <span class="logo">⚙ SuperChat Admin</span>
+      <select id="orgSelector" title="Active organization">
+        <option value="">— select organization —</option>
+      </select>
+    </div>
+    <div class="header-right">
+      <span id="headerUser" class="header-user"></span>
+      <button id="logoutBtn" class="btn-ghost">Sign out</button>
+    </div>
+  </header>
+
+  <!-- Tab bar -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="organizations">Organizations</button>
+    <button class="tab-btn" data-tab="users">Users</button>
+    <button class="tab-btn" data-tab="rules">Business Rules</button>
+    <button class="tab-btn" data-tab="moderation">Moderation</button>
+    <button class="tab-btn" data-tab="compliance">Compliance</button>
+  </nav>
+
+  <!-- ── DASHBOARD ────────────────────────────────────────────────────── -->
+  <section id="tab-dashboard" class="tab-content active">
+    <h2>Dashboard</h2>
+    <p class="hint">Select an organization above to see its overview.</p>
+    <div id="dashboardCards" class="cards hidden">
+      <div class="card" id="cardUsers"><div class="card-value" id="dashUserCount">—</div><div class="card-label">Users</div></div>
+      <div class="card" id="cardRules"><div class="card-value" id="dashRulesCount">—</div><div class="card-label">Business Rules</div></div>
+      <div class="card" id="cardIncidents"><div class="card-value" id="dashIncidentCount">—</div><div class="card-label">Moderation Incidents</div></div>
+      <div class="card" id="cardErasure"><div class="card-value" id="dashErasureCount">—</div><div class="card-label">Pending Erasures</div></div>
+    </div>
+  </section>
+
+  <!-- ── ORGANIZATIONS ────────────────────────────────────────────────── -->
+  <section id="tab-organizations" class="tab-content hidden">
+    <div class="section-header">
+      <h2>Organizations</h2>
+      <button class="btn-primary" id="newOrgBtn">+ New organization</button>
+    </div>
+
+    <!-- Create org form -->
+    <div id="newOrgForm" class="form-card hidden">
+      <h3>Create organization</h3>
+      <div class="form-row">
+        <label>Name<input id="newOrgName" type="text" placeholder="Acme Corp" /></label>
+        <label>Slug<input id="newOrgSlug" type="text" placeholder="acme-corp" /></label>
+        <label>Plan
+          <select id="newOrgPlan">
+            <option value="BASIC">Basic</option>
+            <option value="ENTERPRISE">Enterprise</option>
+            <option value="UNIVERSITY">University</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" id="createOrgBtn">Create</button>
+        <button class="btn-ghost" id="cancelOrgBtn">Cancel</button>
+      </div>
+      <p id="orgFormError" class="error hidden"></p>
+    </div>
+
+    <table class="data-table" id="orgTable">
+      <thead><tr><th>Name</th><th>Slug</th><th>Plan</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody id="orgTableBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table>
+
+    <!-- Departments sub-panel -->
+    <div id="deptPanel" class="sub-panel hidden">
+      <div class="section-header">
+        <h3 id="deptPanelTitle">Departments</h3>
+        <button class="btn-secondary" id="newDeptBtn">+ Add department</button>
+      </div>
+      <div id="newDeptForm" class="form-card hidden">
+        <div class="form-row">
+          <label>Name<input id="newDeptName" type="text" placeholder="Engineering" /></label>
+          <label>Parent department
+            <select id="newDeptParent"><option value="">— none (top-level) —</option></select>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" id="createDeptBtn">Create</button>
+          <button class="btn-ghost" id="cancelDeptBtn">Cancel</button>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Parent</th><th>ID</th></tr></thead>
+        <tbody id="deptTableBody"><tr><td colspan="3" class="empty">No departments yet.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── USERS ────────────────────────────────────────────────────────── -->
+  <section id="tab-users" class="tab-content hidden">
+    <div class="section-header">
+      <h2>Users</h2>
+      <div class="search-row">
+        <input id="userSearchInput" type="search" placeholder="Search by display name…" />
+        <button class="btn-secondary" id="userSearchBtn">Search</button>
+      </div>
+    </div>
+    <p class="hint" id="usersHint">Select an organization to list its members, or search globally.</p>
+    <table class="data-table" id="usersTable">
+      <thead><tr><th>Display name</th><th>System role</th><th>Organization</th><th>Department</th><th>Actions</th></tr></thead>
+      <tbody id="usersTableBody"><tr><td colspan="5" class="empty">No users loaded.</td></tr></tbody>
+    </table>
+
+    <!-- Assign user modal -->
+    <div id="assignModal" class="modal hidden">
+      <div class="modal-box">
+        <h3>Assign user</h3>
+        <input id="assignUserId" type="hidden" />
+        <div class="form-row">
+          <label>System role
+            <select id="assignRole">
+              <option value="USER">User</option>
+              <option value="DEPT_ADMIN">Dept admin</option>
+              <option value="ORG_ADMIN">Org admin</option>
+              <option value="PLATFORM_ADMIN">Platform admin</option>
+            </select>
+          </label>
+          <label>Department
+            <select id="assignDept"><option value="">— none —</option></select>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" id="assignSaveBtn">Save</button>
+          <button class="btn-ghost" id="assignCancelBtn">Cancel</button>
+        </div>
+        <p id="assignError" class="error hidden"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BUSINESS RULES ───────────────────────────────────────────────── -->
+  <section id="tab-rules" class="tab-content hidden">
+    <div class="section-header">
+      <h2>Business Rules</h2>
+      <div class="btn-group">
+        <button class="btn-secondary" id="seedDefaultsBtn">Seed defaults</button>
+        <button class="btn-primary" id="saveRulesBtn">Save changes</button>
+      </div>
+    </div>
+    <p class="hint" id="rulesHint">Select an organization first.</p>
+    <div id="rulesGrid" class="rules-grid hidden"></div>
+  </section>
+
+  <!-- ── MODERATION ───────────────────────────────────────────────────── -->
+  <section id="tab-moderation" class="tab-content hidden">
+    <div class="section-header">
+      <h2>Moderation</h2>
+    </div>
+
+    <!-- Word list -->
+    <div class="sub-section">
+      <div class="section-header">
+        <h3>Word / pattern list</h3>
+        <button class="btn-primary" id="addWordBtn">+ Add rule</button>
+      </div>
+      <div id="addWordForm" class="form-card hidden">
+        <div class="form-row">
+          <label>Pattern<input id="wordPattern" type="text" placeholder="badword or regex" /></label>
+          <label>Is regex<input id="wordIsRegex" type="checkbox" /></label>
+          <label>Severity
+            <select id="wordSeverity">
+              <option value="LOW">Low</option>
+              <option value="MEDIUM" selected>Medium</option>
+              <option value="HIGH">High</option>
+            </select>
+          </label>
+          <label>Action
+            <select id="wordAction">
+              <option value="BLOCK" selected>Block</option>
+              <option value="REPLACE">Replace</option>
+              <option value="WARN">Warn</option>
+            </select>
+          </label>
+          <label>Replacement (if Replace)<input id="wordReplacement" type="text" placeholder="***" /></label>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" id="saveWordBtn">Add</button>
+          <button class="btn-ghost" id="cancelWordBtn">Cancel</button>
+        </div>
+        <p id="wordFormError" class="error hidden"></p>
+      </div>
+      <table class="data-table" id="wordTable">
+        <thead><tr><th>Pattern</th><th>Regex</th><th>Severity</th><th>Action</th><th>Replacement</th><th>Added</th><th></th></tr></thead>
+        <tbody id="wordTableBody"><tr><td colspan="7" class="empty">No rules yet.</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- Incidents -->
+    <div class="sub-section">
+      <div class="section-header">
+        <h3>Recent incidents</h3>
+        <div class="search-row">
+          <input id="incidentUserFilter" type="search" placeholder="Filter by user ID…" />
+          <button class="btn-secondary" id="incidentLoadBtn">Load</button>
+        </div>
+      </div>
+      <table class="data-table" id="incidentTable">
+        <thead><tr><th>Time</th><th>User</th><th>Conversation</th><th>Pattern</th><th>Action</th></tr></thead>
+        <tbody id="incidentTableBody"><tr><td colspan="5" class="empty">No incidents loaded.</td></tr></tbody>
+      </table>
+      <div id="incidentPager" class="pager hidden">
+        <button class="btn-ghost" id="incidentPrevBtn">‹ Prev</button>
+        <span id="incidentPageInfo"></span>
+        <button class="btn-ghost" id="incidentNextBtn">Next ›</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── COMPLIANCE ───────────────────────────────────────────────────── -->
+  <section id="tab-compliance" class="tab-content hidden">
+    <div class="section-header">
+      <h2>Compliance</h2>
+    </div>
+
+    <!-- Audit log -->
+    <div class="sub-section">
+      <div class="section-header">
+        <h3>Audit log</h3>
+        <div class="search-row">
+          <input id="auditActorFilter" type="search" placeholder="Filter by actor ID…" />
+          <button class="btn-secondary" id="auditLoadBtn">Load</button>
+        </div>
+      </div>
+      <table class="data-table" id="auditTable">
+        <thead><tr><th>Time</th><th>Event</th><th>Actor</th><th>Target</th><th>Payload</th></tr></thead>
+        <tbody id="auditTableBody"><tr><td colspan="5" class="empty">No entries loaded.</td></tr></tbody>
+      </table>
+      <div id="auditPager" class="pager hidden">
+        <button class="btn-ghost" id="auditPrevBtn">‹ Prev</button>
+        <span id="auditPageInfo"></span>
+        <button class="btn-ghost" id="auditNextBtn">Next ›</button>
+      </div>
+    </div>
+
+    <!-- Erasure requests -->
+    <div class="sub-section">
+      <div class="section-header">
+        <h3>Erasure requests (GDPR)</h3>
+        <button class="btn-secondary" id="erasureLoadBtn">Refresh</button>
+      </div>
+      <table class="data-table" id="erasureTable">
+        <thead><tr><th>User ID</th><th>Org</th><th>Status</th><th>Requested</th><th>Completed</th><th>Actions</th></tr></thead>
+        <tbody id="erasureTableBody"><tr><td colspan="6" class="empty">No erasure requests.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+</div><!-- /adminPanel -->
+
+<script src="app.js"></script>
+</body>
+</html>

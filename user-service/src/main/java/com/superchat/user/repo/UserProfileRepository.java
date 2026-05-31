@@ -13,4 +13,5 @@ import java.util.UUID;
 public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> {
     Optional<UserProfile> findByKeycloakId(String keycloakId);
     List<UserProfile> findByDisplayNameContainingIgnoreCase(String query, Pageable pageable);
+    List<UserProfile> findByOrganizationId(UUID orgId);
 }

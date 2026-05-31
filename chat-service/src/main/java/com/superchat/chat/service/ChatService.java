@@ -1,14 +1,13 @@
 package com.superchat.chat.service;
 
-import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -29,28 +28,25 @@ public class ChatService {
 
     private final ConversationRepository conversationRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private final RabbitTemplate rabbitTemplate;
-    private final String exchange;
-    private final String routingKey;
-    private final String notificationsExchange;
-    private final String notificationsRoutingKey;
+    private final ModerationClient moderationClient;
+    private final AuditEventPublisher auditPublisher;
+    private final BusinessRuleClient businessRuleClient;
+    private final MessagePersistenceService messagePersistence;
 
     public ChatService(
             ConversationRepository conversationRepository,
             ChatMessageRepository chatMessageRepository,
-            RabbitTemplate rabbitTemplate,
-            @Value("${chat.rabbit.exchange}") String exchange,
-            @Value("${chat.rabbit.routing-key}") String routingKey,
-            @Value("${chat.notifications.exchange:notifications.exchange}") String notificationsExchange,
-            @Value("${chat.notifications.routing-key:notifications.message.created}") String notificationsRoutingKey
+            ModerationClient moderationClient,
+            AuditEventPublisher auditPublisher,
+            BusinessRuleClient businessRuleClient,
+            MessagePersistenceService messagePersistence
     ) {
         this.conversationRepository = conversationRepository;
         this.chatMessageRepository = chatMessageRepository;
-        this.rabbitTemplate = rabbitTemplate;
-        this.exchange = exchange;
-        this.routingKey = routingKey;
-        this.notificationsExchange = notificationsExchange;
-        this.notificationsRoutingKey = notificationsRoutingKey;
+        this.moderationClient = moderationClient;
+        this.auditPublisher = auditPublisher;
+        this.businessRuleClient = businessRuleClient;
+        this.messagePersistence = messagePersistence;
     }
 
     @Transactional
@@ -68,9 +64,14 @@ public class ChatService {
                 });
     }
 
-    @Transactional
+    /**
+     * Orchestrates a send: all remote IO (business-rule fetch, moderation) happens here, with
+     * NO transaction held, so a slow downstream never ties up a DB connection. The atomic write
+     * (message row + outbox event rows) is delegated to MessagePersistenceService; an OutboxRelay
+     * then publishes the events to RabbitMQ with at-least-once delivery.
+     */
     public ChatMessage sendMessage(Long conversationId, String content, String sender, String senderName,
-            String attachmentUrl, String attachmentType, boolean viewOnce) {
+            String attachmentUrl, String attachmentType, boolean viewOnce, String orgId) {
         if (conversationId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "conversationId is required");
         }
@@ -79,49 +80,43 @@ public class ChatService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content or attachment is required");
         }
 
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found"));
+        // Fetch org rules once (remote call, no DB connection held) and reuse for all checks.
+        Map<String, String> rules = orgId != null ? businessRuleClient.getRules(orgId) : Map.of();
 
-        ChatMessage message = new ChatMessage();
-        message.setConversation(conversation);
+        // Business rules: working hours
+        if ("true".equalsIgnoreCase(rules.get("working_hours_only"))) {
+            try {
+                ZoneId zone = ZoneId.of(rules.getOrDefault("working_hours_timezone", "UTC"));
+                LocalTime now   = LocalTime.now(zone);
+                LocalTime start = LocalTime.parse(rules.getOrDefault("working_hours_start", "08:00"));
+                LocalTime end   = LocalTime.parse(rules.getOrDefault("working_hours_end", "18:00"));
+                if (now.isBefore(start) || now.isAfter(end)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                            "Messaging outside working hours is disabled by your organization");
+                }
+            } catch (ResponseStatusException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("[BusinessRules] working hours check failed: {}", e.getMessage());
+            }
+        }
+
+        String finalContent = content;
         if (content != null && !content.isBlank()) {
-            message.setContent(content.trim());
+            ModerationClient.CheckResult moderation = moderationClient.check(orgId, sender, conversationId, content);
+            if ("BLOCK".equals(moderation.verdict())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Message blocked by content policy");
+            }
+            finalContent = moderation.sanitizedContent();
         }
-        if (attachmentUrl != null && !attachmentUrl.isBlank()) {
-            message.setAttachmentUrl(attachmentUrl.trim());
-            message.setAttachmentType(attachmentType);
-        }
-        message.setSender(sender);
-        message.setSenderName(senderName);
-        message.setViewOnce(viewOnce);
 
-        ChatMessage saved = chatMessageRepository.save(message);
+        // Atomic write: message row + outbox events commit together (no remote IO inside the tx).
+        ChatMessage saved = messagePersistence.persist(
+                conversationId, finalContent, sender, senderName, attachmentUrl, attachmentType, viewOnce, rules);
 
-        Map<String, Object> chatEvent = new HashMap<>();
-        chatEvent.put("eventType", "CHAT_MESSAGE_CREATED");
-        chatEvent.put("messageId", saved.getId());
-        chatEvent.put("conversationId", conversationId);
-        chatEvent.put("sender", sender);
-        chatEvent.put("senderName", senderName != null ? senderName : sender);
-        chatEvent.put("content", saved.getContent() != null ? saved.getContent() : "");
-        chatEvent.put("createdAt", saved.getCreatedAt().toString());
-        chatEvent.put("publishedAt", Instant.now().toString());
-        chatEvent.put("attachmentUrl", saved.getAttachmentUrl() != null ? saved.getAttachmentUrl() : "");
-        chatEvent.put("attachmentType", saved.getAttachmentType() != null ? saved.getAttachmentType() : "");
-        log.info("[Rabbit] published messageId={} to exchange={}", saved.getId(), exchange);
-        rabbitTemplate.convertAndSend(exchange, routingKey, chatEvent);
-
-        Map<String, Object> notificationEvent = new HashMap<>();
-        notificationEvent.put("eventType", "NOTIFICATION_EVENT");
-        notificationEvent.put("type", "MESSAGE");
-        notificationEvent.put("messageId", saved.getId());
-        notificationEvent.put("conversationId", conversationId);
-        notificationEvent.put("sender", sender);
-        notificationEvent.put("senderName", senderName != null ? senderName : sender);
-        notificationEvent.put("content", saved.getContent() != null ? saved.getContent() : "");
-        notificationEvent.put("createdAt", saved.getCreatedAt().toString());
-        log.info("[Rabbit] published notification for messageId={} to exchange={}", saved.getId(), notificationsExchange);
-        rabbitTemplate.convertAndSend(notificationsExchange, notificationsRoutingKey, notificationEvent);
+        auditPublisher.publish("MESSAGE_SENT", sender, String.valueOf(saved.getId()), orgId,
+                Map.of("conversationId", conversationId, "senderName", senderName != null ? senderName : sender));
 
         return saved;
     }
@@ -154,6 +149,7 @@ public class ChatService {
             m.put("id", c.getId());
             m.put("name", c.getName());
             m.put("type", c.getType());
+            m.put("channelType", c.getChannelType() != null ? c.getChannelType() : "GENERAL");
             m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
             if ("DIRECT".equals(c.getType())) {
                 boolean iAmA = userId.equals(c.getDmParticipantA());

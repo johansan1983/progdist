@@ -1,0 +1,55 @@
+# Run Jenkins locally (or on the VPS as a separate stack).
+#
+# Start:
+#   docker compose -f jenkins/docker-compose.yml up -d
+#
+# First-time setup:
+#   1. Open http://localhost:9090
+#   2. Unlock Jenkins:
+#        docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+#   3. Install "Install suggested plugins", then also install:
+#        - Pipeline Maven Integration
+#        - SSH Agent
+#        - Docker Pipeline      (optional — not used by this Jenkinsfile but useful)
+#   4. Configure Global Tools (Manage Jenkins → Tools):
+#        - JDK: name = JDK-21, install from adoptium.net, version 21
+#        - Maven: name = Maven-3.9, install automatically, version 3.9.x
+#   5. Add Credentials (Manage Jenkins → Credentials → Global):
+#        - ID: ghcr-credentials  → Kind: "Username with password"
+#                                   Username: <your GitHub username>
+#                                   Password: <GitHub PAT with write:packages>
+#        - ID: vps-ssh-key       → Kind: "SSH Username with private key"
+#                                   Username: ubuntu  (or your VPS user)
+#                                   Private key: paste your SSH private key
+#        - ID: vps-host          → Kind: "Secret text"
+#                                   Secret: <VPS IP or hostname>
+#        - ID: vps-env-file      → Kind: "Secret file"
+#                                   File: your production .env (from .env.example)
+#   6. Create a Multibranch Pipeline job pointing at your GitHub repo.
+#      Jenkins discovers the Jenkinsfile automatically.
+#
+# Docker socket is mounted so the Jenkins agent can run `docker build/push`.
+# If Jenkins cannot reach Docker, fix the socket permissions on the host:
+#   sudo chmod 666 /var/run/docker.sock        # quick fix (dev only)
+#   sudo usermod -aG docker $(whoami)          # proper fix, then re-login
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: jenkins
+    restart: unless-stopped
+    user: root                  # needed to access the Docker socket
+    ports:
+      - "9090:8080"             # Jenkins web UI → http://localhost:9090
+      - "50000:50000"           # inbound Jenkins agent port
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock   # share host Docker daemon
+    environment:
+      # Skip the setup wizard if you want a blank Jenkins (remove to keep wizard)
+      # JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+      JENKINS_OPTS: "--prefix=/jenkins"   # optional: serve under /jenkins path
+
+volumes:
+  jenkins_home:
+    name: jenkins_home

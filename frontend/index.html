@@ -16,27 +16,35 @@
     <main class="app-shell">
       <section class="panel panel-auth" id="authPanel">
         <h1>SuperChat</h1>
-        <p class="subtitle">Plataforma corporativa de mensajería</p>
+        <p class="subtitle" data-i18n="appSubtitle">Plataforma corporativa de mensajería</p>
         <form id="loginForm" class="stack">
           <label>
-            Usuario
+            <span data-i18n="user">Usuario</span>
             <input id="phone" type="text" placeholder="alice" autocomplete="username" required />
           </label>
           <label>
-            Contraseña
+            <span data-i18n="password">Contraseña</span>
             <input id="password" type="password" placeholder="••••••••" required />
           </label>
-          <button type="submit">Entrar</button>
+          <button type="submit" data-i18n="login">Entrar</button>
         </form>
         <p id="authError" class="error"></p>
+        <div class="lang-switcher auth-lang">
+          <span aria-hidden="true">🌐</span>
+          <select id="authLangSelect" aria-label="Language / Idioma / Langue">
+            <option value="es">Español</option>
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+          </select>
+        </div>
       </section>
 
       <section class="panel panel-chat hidden" id="chatPanel">
         <header class="chat-header">
           <div class="chat-header-left">
-            <button id="sidebarToggle" type="button" class="btn-icon sidebar-toggle-btn" aria-label="Conversaciones" aria-expanded="false">☰</button>
+            <button id="sidebarToggle" type="button" class="btn-icon sidebar-toggle-btn" data-i18n-aria="conversations" aria-label="Conversaciones" aria-expanded="false">☰</button>
             <div>
-              <h2 id="chatTitle">Chat General</h2>
+              <h2 id="chatTitle" data-i18n="chatGeneral">Chat General</h2>
               <p id="sessionInfo"></p>
             </div>
           </div>
@@ -45,23 +53,30 @@
               <span id="socketDot" class="dot offline"></span>
               <span id="socketText">desconectado</span>
             </div>
-            <button id="logoutBtn" type="button" class="btn-ghost">Cerrar sesión</button>
+            <div class="lang-switcher">
+              <select id="langSelect" aria-label="Language / Idioma / Langue">
+                <option value="es">ES</option>
+                <option value="en">EN</option>
+                <option value="fr">FR</option>
+              </select>
+            </div>
+            <button id="logoutBtn" type="button" class="btn-ghost" data-i18n="logout">Cerrar sesión</button>
           </div>
         </header>
 
         <div class="chat-layout">
           <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
-          <aside class="conv-sidebar" aria-label="Conversaciones">
+          <aside class="conv-sidebar" data-i18n-aria="conversations" aria-label="Conversaciones">
             <div class="conv-sidebar-header">
-              <h3>Conversaciones</h3>
-              <button id="newDmBtn" type="button" class="btn-ghost btn-sm">+ DM</button>
+              <h3 data-i18n="conversations">Conversaciones</h3>
+              <button id="newDmBtn" type="button" class="btn-ghost btn-sm" data-i18n="newDm">+ DM</button>
             </div>
             <ul id="convList" class="conv-list"></ul>
           </aside>
 
           <section class="chat-main">
             <div class="load-more-container">
-              <button id="loadMoreBtn" type="button" class="btn-secondary hidden">Cargar más mensajes</button>
+              <button id="loadMoreBtn" type="button" class="btn-secondary hidden" data-i18n="loadMore">Cargar más mensajes</button>
               <span id="loadMoreStatus" class="load-status"></span>
             </div>
 
@@ -70,20 +85,20 @@
 
             <form id="messageForm" class="composer">
               <input type="file" id="fileInput" class="hidden" accept="image/*,audio/*,*/*" />
-              <button type="button" id="attachBtn" class="btn-icon" title="Adjuntar archivo">📎</button>
-              <button type="button" id="emojiBtn" class="btn-icon" title="Emojis">😊</button>
-              <button type="button" id="viewOnceBtn" class="btn-icon" title="Ver una vez" aria-label="Ver una vez" aria-pressed="false">🔥</button>
-              <button type="button" id="voiceBtn" class="btn-icon" title="Mensaje de voz" aria-label="Grabar mensaje de voz" aria-pressed="false">🎤</button>
+              <button type="button" id="attachBtn" class="btn-icon" data-i18n-aria="attach" aria-label="Adjuntar archivo" title="Adjuntar archivo">📎</button>
+              <button type="button" id="emojiBtn" class="btn-icon" data-i18n-aria="emoji" aria-label="Emojis" title="Emojis">😊</button>
+              <button type="button" id="viewOnceBtn" class="btn-icon" data-i18n-aria="viewOnce" title="Ver una vez" aria-label="Ver una vez" aria-pressed="false">🔥</button>
+              <button type="button" id="voiceBtn" class="btn-icon" data-i18n-aria="voice" title="Mensaje de voz" aria-label="Grabar mensaje de voz" aria-pressed="false">🎤</button>
               <div id="emojiPicker" class="emoji-picker-container hidden"></div>
               <div id="attachmentPreview" class="attachment-preview hidden"></div>
-              <textarea id="messageInput" placeholder="Escribe un mensaje..." maxlength="2000" rows="1" spellcheck="true" lang="es"></textarea>
-              <button type="submit" id="sendBtn">Enviar</button>
+              <textarea id="messageInput" placeholder="Escribe un mensaje..." data-i18n-ph="composerPlaceholder" maxlength="2000" rows="1" spellcheck="true"></textarea>
+              <button type="submit" id="sendBtn" data-i18n="send">Enviar</button>
             </form>
           </section>
 
           <aside class="chat-side" aria-label="Usuarios conectados">
-            <h3>Conectados</h3>
-            <p id="presenceCount" class="presence-count">0 usuarios</p>
+            <h3 data-i18n="online">Conectados</h3>
+            <p id="presenceCount" class="presence-count">0</p>
             <ul id="presenceList" class="presence-list"></ul>
           </aside>
         </div>
@@ -98,11 +113,35 @@
     <!-- DM modal -->
     <div id="dmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Nuevo mensaje directo">
       <div class="modal-box">
-        <h3>Nuevo mensaje directo</h3>
-        <input id="dmSearch" type="text" placeholder="Buscar usuario..." class="dm-search-input" aria-label="Buscar usuario" />
+        <h3 data-i18n="newDmTitle">Nuevo mensaje directo</h3>
+        <input id="dmSearch" type="text" placeholder="Buscar usuario..." data-i18n-ph="searchUser" class="dm-search-input" data-i18n-aria="searchUser" aria-label="Buscar usuario" />
         <ul id="dmUserList" class="dm-user-list"></ul>
-        <button id="closeDmModal" type="button" class="btn-ghost">Cancelar</button>
+        <button id="closeDmModal" type="button" class="btn-ghost" data-i18n="cancel">Cancelar</button>
       </div>
+    </div>
+
+    <!-- Consent modal -->
+    <div id="consentModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="consentTitle">
+      <div class="modal-box consent-box">
+        <h2 id="consentTitle" data-i18n="consentTitle">Data processing consent</h2>
+        <p data-i18n="consentIntro">Your organization requires you to accept its data processing policy before you can use SuperChat.</p>
+        <ul>
+          <li data-i18n="consentP1">Your messages are stored encrypted and subject to your organization's retention policy.</li>
+          <li data-i18n="consentP2">Administrators can review messages for compliance purposes.</li>
+          <li data-i18n="consentP3">You may request a copy or deletion of your data at any time via the compliance portal.</li>
+        </ul>
+        <p class="consent-version"><span data-i18n="consentVersionLabel">Policy version:</span> <strong id="consentVersion">1</strong></p>
+        <div class="consent-actions">
+          <button id="consentAcceptBtn" class="btn-primary" data-i18n="consentAccept">I accept</button>
+          <button id="consentDeclineBtn" class="btn-ghost" data-i18n="consentDecline">Decline and sign out</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Business-rules notification banner (shown for working-hours / DM-disabled errors) -->
+    <div id="rulesNotice" class="rules-notice hidden" role="alert">
+      <span id="rulesNoticeText"></span>
+      <button id="rulesNoticeDismiss" aria-label="Dismiss">✕</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>

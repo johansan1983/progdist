@@ -1,0 +1,53 @@
+# Production image override for CI/CD.
+#
+# Replaces the local build: context with pre-built images from GHCR so the VPS
+# only pulls — it never builds from source.
+#
+# Usage (VPS, after Jenkins has pushed the images):
+#   IMAGE_TAG=<git-sha> docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.prod.yml \
+#     -f docker-compose.images.yml \
+#     pull
+#   IMAGE_TAG=<git-sha> docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.prod.yml \
+#     -f docker-compose.images.yml \
+#     up -d --remove-orphans
+#
+# IMAGE_TAG defaults to 'latest' when not set.
+
+services:
+
+  config-server:
+    image: ghcr.io/johansan1983/progdist-config-server:${IMAGE_TAG:-latest}
+
+  api-gateway:
+    image: ghcr.io/johansan1983/progdist-api-gateway:${IMAGE_TAG:-latest}
+
+  chat-service:
+    image: ghcr.io/johansan1983/progdist-chat-service:${IMAGE_TAG:-latest}
+
+  user-service:
+    image: ghcr.io/johansan1983/progdist-user-service:${IMAGE_TAG:-latest}
+
+  notification-service:
+    image: ghcr.io/johansan1983/progdist-notification-service:${IMAGE_TAG:-latest}
+
+  worker-service:
+    image: ghcr.io/johansan1983/progdist-worker-service:${IMAGE_TAG:-latest}
+
+  admin-service:
+    image: ghcr.io/johansan1983/progdist-admin-service:${IMAGE_TAG:-latest}
+
+  moderation-service:
+    image: ghcr.io/johansan1983/progdist-moderation-service:${IMAGE_TAG:-latest}
+
+  compliance-service:
+    image: ghcr.io/johansan1983/progdist-compliance-service:${IMAGE_TAG:-latest}
+
+  frontend:
+    image: ghcr.io/johansan1983/progdist-frontend:${IMAGE_TAG:-latest}
+
+  admin-panel:
+    image: ghcr.io/johansan1983/progdist-admin-panel:${IMAGE_TAG:-latest}

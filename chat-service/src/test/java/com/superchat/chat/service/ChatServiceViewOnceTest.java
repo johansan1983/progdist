@@ -10,7 +10,6 @@ import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -30,10 +29,17 @@ class ChatServiceViewOnceTest {
     void setUp() {
         messageRepository = mock(ChatMessageRepository.class);
         conversationRepository = mock(ConversationRepository.class);
+        ModerationClient moderationClient = mock(ModerationClient.class);
+        when(moderationClient.check(any(), any(), any(), any()))
+                .thenReturn(new ModerationClient.CheckResult("PASS", "content"));
+
+        BusinessRuleClient businessRuleClient = mock(BusinessRuleClient.class);
+        when(businessRuleClient.getRules(any())).thenReturn(java.util.Map.of());
+
         chatService = new ChatService(
-                conversationRepository, messageRepository, mock(RabbitTemplate.class),
-                "chat.exchange", "chat.routing.key",
-                "notifications.exchange", "notifications.message.created"
+                conversationRepository, messageRepository,
+                moderationClient, mock(AuditEventPublisher.class), businessRuleClient,
+                mock(MessagePersistenceService.class)
         );
     }
 

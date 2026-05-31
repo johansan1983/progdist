@@ -21,12 +21,179 @@ const PAGE_SIZE = 50;
 const KEYCLOAK_TOKEN_URL = "/kc/realms/superchat/protocol/openid-connect/token";
 const KEYCLOAK_CLIENT_ID = "superchat-frontend";
 
+// ── i18n (ES / EN / FR) ───────────────────────────────────────────────────────
+const LANG_STORAGE_KEY = "superchat.lang";
+const SUPPORTED_LANGS = ["es", "en", "fr"];
+
+const I18N = {
+  es: {
+    appSubtitle: "Plataforma corporativa de mensajería",
+    user: "Usuario", password: "Contraseña", login: "Entrar",
+    logout: "Cerrar sesión", connected: "conectado", disconnected: "desconectado",
+    conversations: "Conversaciones", online: "Conectados", newDm: "+ DM",
+    loadMore: "Cargar más mensajes", composerPlaceholder: "Escribe un mensaje...",
+    send: "Enviar", sending: "enviando…",
+    attach: "Adjuntar archivo", emoji: "Emojis", viewOnce: "Ver una vez",
+    voice: "Mensaje de voz", chatGeneral: "Chat General",
+    sessionInfo: "Usuario: {user} | Conversación: {conv}",
+    usersCount: "{n} usuarios", noUsersOnline: "Sin usuarios conectados",
+    loading: "Cargando…", errorLoadingMessages: "Error al cargar mensajes",
+    loginFailed: "No fue posible iniciar sesión. Verifica usuario y contraseña.",
+    downloadFile: "Descargar archivo", disappearsIn: "Desaparecerá en {s}s",
+    oneTyping: "{name} está escribiendo…", manyTyping: "{n} personas están escribiendo…",
+    noMessages: "No hay mensajes aún", sayHi: "Sé el primero en saludar 👋",
+    noConversations: "No hay conversaciones",
+    today: "Hoy", yesterday: "Ayer",
+    sendFailed: "Falló al enviar. Intenta de nuevo.",
+    uploadError: "Error al subir el archivo: ", attachError: "Error al preparar el adjunto: ",
+    audioError: "Error al preparar el audio: ", dmError: "Error al crear DM: ",
+    noAudioSupport: "Tu navegador no soporta grabación de audio.",
+    noMic: "No se encontró ningún micrófono conectado.",
+    recordTooBig: "La grabación supera 50 MB.", stopRecording: "Detener grabación",
+    fileTooBig: "El archivo no puede superar 50 MB.",
+    micBlocked: "El micrófono está bloqueado. Haz clic en el ícono 🔒 de la barra de direcciones, permite el acceso y recarga la página.",
+    micDenied: "Permiso de micrófono denegado. Haz clic en el ícono 🔒 de la barra de direcciones y permite el acceso.",
+    micError: "No se pudo acceder al micrófono: ",
+    newDmTitle: "Nuevo mensaje directo", searchUser: "Buscar usuario…", cancel: "Cancelar",
+    consentTitle: "Consentimiento de tratamiento de datos",
+    consentIntro: "Tu organización requiere que aceptes su política de tratamiento de datos antes de usar SuperChat.",
+    consentP1: "Tus mensajes se almacenan cifrados y están sujetos a la política de retención de tu organización.",
+    consentP2: "Los administradores pueden revisar mensajes con fines de cumplimiento.",
+    consentP3: "Puedes solicitar una copia o la eliminación de tus datos en cualquier momento.",
+    consentVersionLabel: "Versión de la política:", consentAccept: "Acepto",
+    consentDecline: "Rechazar y salir",
+    noticeWorkingHours: "⏰ El envío de mensajes fuera del horario laboral está deshabilitado por tu organización.",
+    noticeDmDisabled: "🚫 Los mensajes directos están deshabilitados por tu organización.",
+    noticeBlocked: "⚠️ Tu mensaje fue bloqueado por la política de contenido.",
+  },
+  en: {
+    appSubtitle: "Corporate messaging platform",
+    user: "Username", password: "Password", login: "Sign in",
+    logout: "Sign out", connected: "connected", disconnected: "disconnected",
+    conversations: "Conversations", online: "Online", newDm: "+ DM",
+    loadMore: "Load more messages", composerPlaceholder: "Type a message…",
+    send: "Send", sending: "sending…",
+    attach: "Attach file", emoji: "Emojis", viewOnce: "View once",
+    voice: "Voice message", chatGeneral: "General Chat",
+    sessionInfo: "User: {user} | Conversation: {conv}",
+    usersCount: "{n} users", noUsersOnline: "No users online",
+    loading: "Loading…", errorLoadingMessages: "Error loading messages",
+    loginFailed: "Sign-in failed. Check your username and password.",
+    downloadFile: "Download file", disappearsIn: "Disappears in {s}s",
+    oneTyping: "{name} is typing…", manyTyping: "{n} people are typing…",
+    noMessages: "No messages yet", sayHi: "Be the first to say hi 👋",
+    noConversations: "No conversations",
+    today: "Today", yesterday: "Yesterday",
+    sendFailed: "Failed to send. Try again.",
+    uploadError: "File upload error: ", attachError: "Could not prepare attachment: ",
+    audioError: "Could not prepare audio: ", dmError: "Could not create DM: ",
+    noAudioSupport: "Your browser does not support audio recording.",
+    noMic: "No microphone found.",
+    recordTooBig: "Recording exceeds 50 MB.", stopRecording: "Stop recording",
+    fileTooBig: "File cannot exceed 50 MB.",
+    micBlocked: "The microphone is blocked. Click the 🔒 icon in the address bar, allow access, then reload the page.",
+    micDenied: "Microphone permission denied. Click the 🔒 icon in the address bar and allow access.",
+    micError: "Could not access the microphone: ",
+    newDmTitle: "New direct message", searchUser: "Search user…", cancel: "Cancel",
+    consentTitle: "Data processing consent",
+    consentIntro: "Your organization requires you to accept its data processing policy before you can use SuperChat.",
+    consentP1: "Your messages are stored encrypted and subject to your organization's retention policy.",
+    consentP2: "Administrators can review messages for compliance purposes.",
+    consentP3: "You may request a copy or deletion of your data at any time.",
+    consentVersionLabel: "Policy version:", consentAccept: "I accept",
+    consentDecline: "Decline and sign out",
+    noticeWorkingHours: "⏰ Messaging outside working hours is disabled by your organization.",
+    noticeDmDisabled: "🚫 Direct messaging is disabled by your organization.",
+    noticeBlocked: "⚠️ Your message was blocked by the content policy.",
+  },
+  fr: {
+    appSubtitle: "Plateforme de messagerie d'entreprise",
+    user: "Utilisateur", password: "Mot de passe", login: "Se connecter",
+    logout: "Se déconnecter", connected: "connecté", disconnected: "déconnecté",
+    conversations: "Conversations", online: "En ligne", newDm: "+ MP",
+    loadMore: "Charger plus de messages", composerPlaceholder: "Écrivez un message…",
+    send: "Envoyer", sending: "envoi…",
+    attach: "Joindre un fichier", emoji: "Émojis", viewOnce: "Vue unique",
+    voice: "Message vocal", chatGeneral: "Discussion générale",
+    sessionInfo: "Utilisateur : {user} | Conversation : {conv}",
+    usersCount: "{n} utilisateurs", noUsersOnline: "Aucun utilisateur en ligne",
+    loading: "Chargement…", errorLoadingMessages: "Erreur de chargement des messages",
+    loginFailed: "Échec de la connexion. Vérifiez votre identifiant et votre mot de passe.",
+    downloadFile: "Télécharger le fichier", disappearsIn: "Disparaît dans {s}s",
+    oneTyping: "{name} est en train d'écrire…", manyTyping: "{n} personnes écrivent…",
+    noMessages: "Aucun message", sayHi: "Soyez le premier à dire bonjour 👋",
+    noConversations: "Aucune conversation",
+    today: "Aujourd'hui", yesterday: "Hier",
+    sendFailed: "Échec de l'envoi. Réessayez.",
+    uploadError: "Erreur de téléversement : ", attachError: "Impossible de préparer la pièce jointe : ",
+    audioError: "Impossible de préparer l'audio : ", dmError: "Impossible de créer le MP : ",
+    noAudioSupport: "Votre navigateur ne prend pas en charge l'enregistrement audio.",
+    noMic: "Aucun microphone détecté.",
+    recordTooBig: "L'enregistrement dépasse 50 Mo.", stopRecording: "Arrêter l'enregistrement",
+    fileTooBig: "Le fichier ne peut pas dépasser 50 Mo.",
+    micBlocked: "Le microphone est bloqué. Cliquez sur l'icône 🔒 dans la barre d'adresse, autorisez l'accès, puis rechargez la page.",
+    micDenied: "Autorisation du microphone refusée. Cliquez sur l'icône 🔒 dans la barre d'adresse et autorisez l'accès.",
+    micError: "Impossible d'accéder au microphone : ",
+    newDmTitle: "Nouveau message direct", searchUser: "Rechercher un utilisateur…", cancel: "Annuler",
+    consentTitle: "Consentement au traitement des données",
+    consentIntro: "Votre organisation exige que vous acceptiez sa politique de traitement des données avant d'utiliser SuperChat.",
+    consentP1: "Vos messages sont stockés chiffrés et soumis à la politique de conservation de votre organisation.",
+    consentP2: "Les administrateurs peuvent consulter les messages à des fins de conformité.",
+    consentP3: "Vous pouvez demander une copie ou la suppression de vos données à tout moment.",
+    consentVersionLabel: "Version de la politique :", consentAccept: "J'accepte",
+    consentDecline: "Refuser et se déconnecter",
+    noticeWorkingHours: "⏰ L'envoi de messages en dehors des heures de travail est désactivé par votre organisation.",
+    noticeDmDisabled: "🚫 Les messages directs sont désactivés par votre organisation.",
+    noticeBlocked: "⚠️ Votre message a été bloqué par la politique de contenu.",
+  },
+};
+
+function detectLang() {
+  const saved = localStorage.getItem(LANG_STORAGE_KEY);
+  if (saved && SUPPORTED_LANGS.includes(saved)) return saved;
+  const nav = (navigator.language || "es").slice(0, 2).toLowerCase();
+  return SUPPORTED_LANGS.includes(nav) ? nav : "es";
+}
+
+let LANG = detectLang();
+
+function t(key, vars) {
+  let s = (I18N[LANG] && I18N[LANG][key]) || I18N.es[key] || key;
+  if (vars) for (const k in vars) s = s.replace(`{${k}}`, vars[k]);
+  return s;
+}
+
+function applyTranslations() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll("[data-i18n-aria]").forEach(el => {
+    el.setAttribute("aria-label", t(el.dataset.i18nAria));
+    el.setAttribute("title", t(el.dataset.i18nAria));
+  });
+  document.querySelectorAll(".lang-switcher select").forEach(sel => { sel.value = LANG; });
+}
+
+function setLang(lang) {
+  if (!SUPPORTED_LANGS.includes(lang)) return;
+  LANG = lang;
+  localStorage.setItem(LANG_STORAGE_KEY, lang);
+  applyTranslations();
+  // Re-render dynamic UI that isn't driven by data-i18n
+  setSocketStatus(socketDotEl.classList.contains("online"));
+  renderTypingIndicator();
+  if (state.token) setSessionInfo();
+}
+
 const state = {
   token: "",
   refreshToken: "",
   tokenExpiresAt: 0,
   username: "",
   displayName: "",
+  orgId: "",
+  systemRole: "",
+  consentChecked: false,
   conversationId: 1,
   activeConversationId: null,
   conversations: [],
@@ -47,6 +214,7 @@ const state = {
   pendingAttachment: null, // { file, uploadUrl, publicUrl, attachmentType }
   presignInProgress: false,
   viewOnce: false,
+  lastRenderedDay: null,   // tracks day-of last rendered message for date dividers
 };
 
 // ── Token management ─────────────────────────────────────────────────────────
@@ -104,6 +272,8 @@ function saveSession() {
     tokenExpiresAt: state.tokenExpiresAt,
     username: state.username,
     displayName: state.displayName,
+    orgId: state.orgId,
+    systemRole: state.systemRole,
     conversationId: state.conversationId,
   }));
 }
@@ -121,13 +291,13 @@ function setPanels(isAuthenticated) {
 
 function setSessionInfo() {
   const display = state.displayName || state.username;
-  sessionInfoEl.textContent = `Usuario: ${display} | Conversación: ${state.conversationId}`;
+  sessionInfoEl.textContent = t("sessionInfo", { user: display, conv: state.conversationId });
 }
 
 function setSocketStatus(online) {
   socketDotEl.classList.toggle("online", online);
   socketDotEl.classList.toggle("offline", !online);
-  socketTextEl.textContent = online ? "conectado" : "desconectado";
+  socketTextEl.textContent = online ? t("connected") : t("disconnected");
 }
 
 function disconnectWebSocket() {
@@ -146,6 +316,9 @@ function resetState() {
   state.tokenExpiresAt = 0;
   state.username = "";
   state.displayName = "";
+  state.orgId = "";
+  state.systemRole = "";
+  state.consentChecked = false;
   state.conversationId = 1;
   state.currentPage = 0;
   state.totalPages = 0;
@@ -180,6 +353,7 @@ async function api(url, options = {}) {
 
   const headers = { ...(options.headers || {}) };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  if (state.orgId) headers["X-Org-Id"] = state.orgId;
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
@@ -192,6 +366,109 @@ async function api(url, options = {}) {
   return response.json();
 }
 
+// ── User profile + org context ────────────────────────────────────────────────
+
+async function fetchUserProfile() {
+  try {
+    const profile = await api("/api/users/me");
+    if (profile.orgId) state.orgId = profile.orgId;
+    if (profile.systemRole) state.systemRole = profile.systemRole;
+    if (profile.displayName) state.displayName = profile.displayName;
+  } catch {
+    // fail open — org context is optional
+  }
+}
+
+// ── Consent gate ──────────────────────────────────────────────────────────────
+
+async function checkConsent() {
+  if (!state.orgId || state.consentChecked) return true;
+  try {
+    const status = await api(`/api/compliance/consent/${state.orgId}/status`);
+    if (status.active) {
+      state.consentChecked = true;
+      return true;
+    }
+    // Need consent — fetch org rules to get current version
+    let version = 1;
+    try {
+      const rules = await api(`/api/admin/organizations/${state.orgId}/rules`);
+      const versionRule = rules.find(r => r.key === "consent_version");
+      if (versionRule) version = parseInt(versionRule.value, 10) || 1;
+    } catch { /* use version 1 */ }
+
+    return await showConsentModal(version);
+  } catch {
+    return true; // fail open if compliance service unavailable
+  }
+}
+
+function showConsentModal(version) {
+  return new Promise(resolve => {
+    const modal = document.getElementById("consentModal");
+    if (!modal) { resolve(true); return; }
+    document.getElementById("consentVersion").textContent = version;
+    modal.classList.remove("hidden");
+
+    const acceptBtn = document.getElementById("consentAcceptBtn");
+    const declineBtn = document.getElementById("consentDeclineBtn");
+
+    async function onAccept() {
+      acceptBtn.removeEventListener("click", onAccept);
+      declineBtn.removeEventListener("click", onDecline);
+      try {
+        await api("/api/compliance/consent", {
+          method: "POST",
+          body: JSON.stringify({ orgId: state.orgId, version }),
+        });
+        state.consentChecked = true;
+        modal.classList.add("hidden");
+        resolve(true);
+      } catch {
+        modal.classList.add("hidden");
+        resolve(false);
+      }
+    }
+
+    function onDecline() {
+      acceptBtn.removeEventListener("click", onAccept);
+      declineBtn.removeEventListener("click", onDecline);
+      modal.classList.add("hidden");
+      logout();
+      resolve(false);
+    }
+
+    acceptBtn.addEventListener("click", onAccept);
+    declineBtn.addEventListener("click", onDecline);
+  });
+}
+
+// ── Channel type ──────────────────────────────────────────────────────────────
+
+function channelIcon(channelType) {
+  switch (channelType) {
+    case 'ANNOUNCEMENT': return '📢';
+    case 'TEAM':         return '👥';
+    case 'CLASS':        return '🎓';
+    case 'SUPPORT':      return '🆘';
+    default:             return '#';
+  }
+}
+
+// ── Business rules notice ─────────────────────────────────────────────────────
+
+function showRulesNotice(text, durationMs = 6000) {
+  const notice = document.getElementById("rulesNotice");
+  const noticeText = document.getElementById("rulesNoticeText");
+  const dismiss = document.getElementById("rulesNoticeDismiss");
+  if (!notice || !noticeText) return;
+  noticeText.textContent = text;
+  notice.classList.remove("hidden");
+  const hide = () => notice.classList.add("hidden");
+  dismiss?.addEventListener("click", hide, { once: true });
+  setTimeout(hide, durationMs);
+}
+
 // ── Presence ──────────────────────────────────────────────────────────────────
 
 function renderPresence(users) {
@@ -202,12 +479,12 @@ function renderPresence(users) {
     .map(u => u.trim());
   const unique = [...new Set(normalized)].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
 
-  presenceCountEl.textContent = `${unique.length} usuarios`;
+  presenceCountEl.textContent = t("usersCount", { n: unique.length });
   presenceListEl.innerHTML = "";
 
   if (unique.length === 0) {
     const empty = document.createElement("li");
-    empty.textContent = "Sin usuarios conectados";
+    empty.textContent = t("noUsersOnline");
     presenceListEl.appendChild(empty);
     return;
   }
@@ -247,6 +524,31 @@ function resolveDisplayName(message) {
   return (sender === state.username && state.displayName) ? state.displayName : sender;
 }
 
+function dayKey(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function dividerLabel(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (dayKey(iso) === dayKey(today)) return t("today");
+  if (dayKey(iso) === dayKey(yesterday)) return t("yesterday");
+  return d.toLocaleDateString(LANG, { day: "numeric", month: "long", year: "numeric" });
+}
+
+function maybeInsertDateDivider(iso) {
+  const key = dayKey(iso);
+  if (state.lastRenderedDay === key) return;
+  state.lastRenderedDay = key;
+  const divider = document.createElement("div");
+  divider.className = "date-divider";
+  divider.textContent = dividerLabel(iso);
+  messagesEl.appendChild(divider);
+}
+
 function appendMessage(message, isOptimistic = false) {
   // Deduplicate: match incoming real message against a pending optimistic one by content.
   // Check the Map first (populated before the REST call) so we catch the race where the
@@ -260,7 +562,7 @@ function appendMessage(message, isOptimistic = false) {
         if (el) {
           el.classList.remove('msg-optimistic');
           const metaEl = el.querySelector('.meta');
-          if (metaEl) metaEl.textContent = metaEl.textContent.replace(' (enviando...)', '');
+          if (metaEl) metaEl.textContent = metaEl.textContent.replace(/\s*\([^)]*\)\s*$/, '');
         }
         return;
       }
@@ -274,14 +576,15 @@ function appendMessage(message, isOptimistic = false) {
     }
   }
 
+  const isOwn = message.sender === state.username;
   const item = document.createElement("div");
-  item.className = "msg" + (isOptimistic ? " msg-optimistic" : "");
+  item.className = "msg" + (isOwn ? " msg-own" : "") + (isOptimistic ? " msg-optimistic" : "");
   if (message.optimisticId) item.id = `msg-${message.optimisticId}`;
 
   const meta = document.createElement("div");
   meta.className = "meta";
-  const created = message.createdAt ? new Date(message.createdAt).toLocaleTimeString() : "";
-  const status = isOptimistic ? " (enviando...)" : "";
+  const created = message.createdAt ? new Date(message.createdAt).toLocaleTimeString(LANG, { hour: "2-digit", minute: "2-digit" }) : "";
+  const status = isOptimistic ? ` (${t("sending")})` : "";
   meta.textContent = `${resolveDisplayName(message)} ${created}${status}`.trim();
 
   // View-once expired — skip entirely (message was already seen by recipient)
@@ -300,6 +603,13 @@ function appendMessage(message, isOptimistic = false) {
 
   item.append(meta, content);
 
+  // Remove the empty-state placeholder once a real message arrives
+  const emptyEl = messagesEl.querySelector('.empty-state');
+  if (emptyEl) emptyEl.remove();
+
+  // Insert a date divider when the calendar day changes
+  maybeInsertDateDivider(message.createdAt);
+
   if (message.attachmentType === 'IMAGE' && message.attachmentUrl) {
     const img = document.createElement('img');
     img.src = message.attachmentUrl;
@@ -316,7 +626,7 @@ function appendMessage(message, isOptimistic = false) {
   } else if (message.attachmentType === 'FILE' && message.attachmentUrl) {
     const link = document.createElement('a');
     link.href = message.attachmentUrl;
-    link.textContent = '📎 Descargar archivo';
+    link.textContent = `📎 ${t('downloadFile')}`;
     link.className = 'msg-file';
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
@@ -331,7 +641,7 @@ function appendMessage(message, isOptimistic = false) {
     const countdown = document.createElement('div');
     countdown.className = 'view-once-countdown';
     let secs = 5;
-    countdown.textContent = `🔥 Desaparecerá en ${secs}s`;
+    countdown.textContent = `🔥 ${t('disappearsIn', { s: secs })}`;
     item.appendChild(countdown);
 
     const timer = setInterval(() => {
@@ -342,7 +652,7 @@ function appendMessage(message, isOptimistic = false) {
         item.style.opacity = '0';
         setTimeout(() => item.remove(), 600);
       } else {
-        countdown.textContent = `🔥 Desaparecerá en ${secs}s`;
+        countdown.textContent = `🔥 ${t('disappearsIn', { s: secs })}`;
       }
     }, 1000);
   }
@@ -367,8 +677,18 @@ async function ensureConversation() {
 async function loadHistory() {
   messagesEl.innerHTML = "";
   state.currentPage = 0;
+  state.lastRenderedDay = null;
   state.optimisticMessages.clear();
   await loadMoreMessages();
+  renderMessagesEmptyStateIfNeeded();
+}
+
+function renderMessagesEmptyStateIfNeeded() {
+  if (messagesEl.querySelector(".msg") || messagesEl.querySelector(".empty-state")) return;
+  const empty = document.createElement("div");
+  empty.className = "empty-state";
+  empty.innerHTML = `<span class="empty-emoji">💬</span>${t("noMessages")}<br>${t("sayHi")}`;
+  messagesEl.appendChild(empty);
 }
 
 async function loadMoreMessages() {
@@ -378,7 +698,7 @@ async function loadMoreMessages() {
   }
 
   state.isLoadingMessages = true;
-  if (loadMoreStatusEl) loadMoreStatusEl.textContent = "Cargando...";
+  if (loadMoreStatusEl) loadMoreStatusEl.textContent = t("loading");
 
   try {
     const convId = state.activeConversationId ?? state.conversationId;
@@ -392,7 +712,7 @@ async function loadMoreMessages() {
       loadMoreBtn.classList.toggle("hidden", state.currentPage >= state.totalPages);
     }
   } catch (err) {
-    if (loadMoreStatusEl) loadMoreStatusEl.textContent = "Error al cargar mensajes";
+    if (loadMoreStatusEl) loadMoreStatusEl.textContent = t("errorLoadingMessages");
   } finally {
     state.isLoadingMessages = false;
     if (loadMoreStatusEl) loadMoreStatusEl.textContent = "";
@@ -432,12 +752,19 @@ function renderConvList() {
   const ul = document.getElementById('convList');
   if (!ul) return;
   ul.innerHTML = '';
+  if (!state.conversations.length) {
+    const li = document.createElement('li');
+    li.className = 'conv-empty';
+    li.textContent = t('noConversations');
+    ul.appendChild(li);
+    return;
+  }
   const activeId = state.activeConversationId ?? state.conversationId;
   state.conversations.forEach(conv => {
     const li = document.createElement('li');
     const label = conv.type === 'DIRECT'
-      ? `\u{1F4AC} ${conv.otherParticipantName || conv.id}`
-      : `\u{1F465} ${conv.name || conv.id}`;
+      ? `@ ${conv.otherParticipantName || conv.id}`
+      : `${channelIcon(conv.channelType)} ${conv.name || conv.id}`;
     li.title = label;
     li.dataset.id = String(conv.id);
     if (conv.id === activeId) li.classList.add('active');
@@ -501,8 +828,8 @@ function renderTypingIndicator() {
   }
   typingIndicatorEl.classList.remove("hidden");
   typingIndicatorEl.textContent = users.length === 1
-    ? `${users[0]} está escribiendo...`
-    : `${users.length} personas están escribiendo...`;
+    ? t("oneTyping", { name: users[0] })
+    : t("manyTyping", { n: users.length });
 }
 
 function clearRemoteTypingState() {
@@ -625,6 +952,10 @@ loginForm.addEventListener("submit", async event => {
     if (!response.ok) throw new Error("Login failed");
     applyTokenResponse(await response.json());
 
+    await fetchUserProfile();
+    const consentOk = await checkConsent();
+    if (!consentOk) return;
+
     await ensureConversation();
     setSessionInfo();
     setPanels(true);
@@ -633,7 +964,7 @@ loginForm.addEventListener("submit", async event => {
     connectWebSocket();
     saveSession();
   } catch {
-    authErrorEl.textContent = "No fue posible iniciar sesión. Verifica usuario y contraseña.";
+    authErrorEl.textContent = t("loginFailed");
   }
 });
 
@@ -660,7 +991,7 @@ messageForm.addEventListener("submit", async event => {
       attachmentUrl = publicUrl;
       attachmentType = aType;
     } catch (e) {
-      alert('Error al subir el archivo: ' + e.message);
+      alert(t("uploadError") + e.message);
       state.viewOnce = false;
       const viewOnceBtn = document.getElementById('viewOnceBtn');
       if (viewOnceBtn) {
@@ -702,11 +1033,19 @@ messageForm.addEventListener("submit", async event => {
       confirmedEl.dataset.confirmed = "true";
       confirmedEl.dataset.content = content;
       const metaEl = confirmedEl.querySelector(".meta");
-      if (metaEl) metaEl.textContent = metaEl.textContent.replace(" (enviando...)", "");
+      if (metaEl) metaEl.textContent = metaEl.textContent.replace(/\s*\([^)]*\)\s*$/, "");
     }
-  } catch {
+  } catch (err) {
     const el = document.getElementById(`msg-${optimisticId}`);
-    if (el) { el.classList.add("msg-error"); el.title = "Falló al enviar. Intenta de nuevo."; }
+    if (el) { el.classList.add("msg-error"); el.title = t("sendFailed"); }
+    const msg = err?.message || "";
+    if (msg.includes("working hours")) {
+      showRulesNotice(t("noticeWorkingHours"));
+    } else if (msg.includes("Direct messaging is disabled")) {
+      showRulesNotice(t("noticeDmDisabled"));
+    } else if (msg.includes("content policy")) {
+      showRulesNotice(t("noticeBlocked"));
+    }
   }
 });
 
@@ -764,7 +1103,7 @@ fileInput.addEventListener('change', async () => {
   const file = fileInput.files[0];
   if (!file) return;
   if (file.size > 50 * 1024 * 1024) {
-    alert('El archivo no puede superar 50 MB.');
+    alert(t("fileTooBig"));
     fileInput.value = '';
     return;
   }
@@ -778,13 +1117,15 @@ fileInput.addEventListener('change', async () => {
       const ok = await refreshAccessToken();
       if (!ok) { logout(); return; }
     }
+    const presignHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${state.token}`,
+    };
+    if (state.orgId) presignHeaders['X-Org-Id'] = state.orgId;
     const presignResp = await fetch('/api/chat/attachments/presign', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${state.token}`,
-      },
-      body: JSON.stringify({ filename: file.name, contentType, conversationId: state.activeConversationId ?? state.conversationId }),
+      headers: presignHeaders,
+      body: JSON.stringify({ filename: file.name, contentType, conversationId: state.activeConversationId ?? state.conversationId, fileSizeBytes: file.size }),
     });
     if (!presignResp.ok) throw new Error(await presignResp.text());
     const data = await presignResp.json();
@@ -825,7 +1166,12 @@ fileInput.addEventListener('change', async () => {
     attachmentPreview.appendChild(removeBtn);
     state.presignInProgress = false;
   } catch (e) {
-    alert('Error al preparar el adjunto: ' + e.message);
+    const msg = e?.message || "";
+    if (msg.includes("not allowed") || msg.includes("exceeds the maximum")) {
+      showRulesNotice("📎 " + msg);
+    } else {
+      alert(t("attachError") + msg);
+    }
     fileInput.value = '';
     state.presignInProgress = false;
   }
@@ -921,7 +1267,7 @@ function stopVoiceTimerDisplay() {
 
 async function startRecording() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    showVoicePermissionError('Tu navegador no soporta grabación de audio.');
+    showVoicePermissionError(t("noAudioSupport"));
     return;
   }
 
@@ -931,7 +1277,7 @@ async function startRecording() {
     try {
       const status = await navigator.permissions.query({ name: 'microphone' });
       if (status.state === 'denied') {
-        showVoicePermissionError('El micrófono está bloqueado. Haz clic en el ícono 🔒 de la barra de direcciones y permite el acceso al micrófono, luego recarga la página.');
+        showVoicePermissionError(t("micBlocked"));
         return;
       }
     } catch {
@@ -952,15 +1298,15 @@ async function startRecording() {
     mediaRecorder.start();
     voiceBtn.classList.add('recording');
     voiceBtn.setAttribute('aria-pressed', 'true');
-    voiceBtn.title = 'Detener grabación';
+    voiceBtn.title = t("stopRecording");
     startVoiceTimerDisplay();
   } catch (err) {
     if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-      showVoicePermissionError('Permiso de micrófono denegado. Haz clic en el ícono 🔒 de la barra de direcciones y permite el acceso al micrófono.');
+      showVoicePermissionError(t("micDenied"));
     } else if (err.name === 'NotFoundError') {
-      showVoicePermissionError('No se encontró ningún micrófono conectado.');
+      showVoicePermissionError(t("noMic"));
     } else {
-      showVoicePermissionError('No se pudo acceder al micrófono: ' + err.message);
+      showVoicePermissionError(t("micError") + err.message);
     }
   }
 }
@@ -973,7 +1319,7 @@ function stopRecording() {
   if (btn) {
     btn.classList.remove('recording');
     btn.setAttribute('aria-pressed', 'false');
-    btn.title = 'Mensaje de voz';
+    btn.title = t("voice");
   }
   stopVoiceTimerDisplay();
 }
@@ -985,7 +1331,7 @@ async function handleRecordingFinished() {
   const blob = new Blob(recordingChunks, { type: mimeType });
   const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: mimeType });
 
-  if (file.size > 50 * 1024 * 1024) { alert('La grabación supera 50 MB.'); return; }
+  if (file.size > 50 * 1024 * 1024) { alert(t("recordTooBig")); return; }
 
   state.presignInProgress = true;
   try {
@@ -993,10 +1339,12 @@ async function handleRecordingFinished() {
       const ok = await refreshAccessToken();
       if (!ok) { logout(); return; }
     }
+    const presignHeaders2 = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` };
+    if (state.orgId) presignHeaders2['X-Org-Id'] = state.orgId;
     const presignResp = await fetch('/api/chat/attachments/presign', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-      body: JSON.stringify({ filename: file.name, contentType: mimeType, conversationId: state.activeConversationId ?? state.conversationId }),
+      headers: presignHeaders2,
+      body: JSON.stringify({ filename: file.name, contentType: mimeType, conversationId: state.activeConversationId ?? state.conversationId, fileSizeBytes: file.size }),
     });
     if (!presignResp.ok) throw new Error(await presignResp.text());
     const data = await presignResp.json();
@@ -1030,7 +1378,7 @@ async function handleRecordingFinished() {
 
     state.pendingAttachment = { file, uploadUrl: data.uploadUrl, publicUrl: data.publicUrl, attachmentType: data.attachmentType || 'AUDIO' };
   } catch (e) {
-    alert('Error al preparar el audio: ' + e.message);
+    alert(t("audioError") + e.message);
   } finally {
     state.presignInProgress = false;
   }
@@ -1127,7 +1475,7 @@ async function startDm(participantId, participantName) {
     await loadConversations();
     await switchConversation(dm.id, `\u{1F4AC} ${dm.otherParticipantName || participantName}`);
   } catch (e) {
-    alert('Error al crear DM: ' + (e?.message || String(e)));
+    alert(t("dmError") + (e?.message || String(e)));
   }
 }
 
@@ -1146,6 +1494,8 @@ async function restoreSession() {
     state.tokenExpiresAt = parsed.tokenExpiresAt || 0;
     state.username = parsed.username;
     state.displayName = parsed.displayName || parsed.username;
+    state.orgId = parsed.orgId || "";
+    state.systemRole = parsed.systemRole || "";
     if (Number.isInteger(parsed.conversationId) && parsed.conversationId > 0) {
       state.conversationId = parsed.conversationId;
     }
@@ -1155,6 +1505,10 @@ async function restoreSession() {
       const ok = await refreshAccessToken();
       if (!ok) { logout(); return; }
     }
+
+    await fetchUserProfile();
+    const consentOk = await checkConsent();
+    if (!consentOk) return;
 
     await ensureConversation();
     setSessionInfo();
@@ -1168,8 +1522,16 @@ async function restoreSession() {
   }
 }
 
+// ── Language switcher wiring ──────────────────────────────────────────────────
+
+["authLangSelect", "langSelect"].forEach(id => {
+  const sel = document.getElementById(id);
+  if (sel) sel.addEventListener("change", e => setLang(e.target.value));
+});
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
+applyTranslations();
 setSocketStatus(false);
 setPanels(false);
 renderPresence([]);
