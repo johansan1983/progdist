@@ -9,6 +9,8 @@ Documento de arquitectura para presentación:
 
 - docs/ARQUITECTURA_SUPERCHAT.md
 
+> **Edición Enterprise / Universitaria:** `docker compose up` levanta también los servicios `admin-service`, `moderation-service`, `compliance-service` y el `admin-panel`. El modelo multi-tenant, RBAC, reglas de negocio, moderación de contenido, cifrado de mensajes, cumplimiento GDPR y observabilidad están documentados en **[ENTERPRISE.md](ENTERPRISE.md)**.
+
 ## Stack
 
 - Java 21 (Temurin)
@@ -20,7 +22,7 @@ Documento de arquitectura para presentación:
 - PostgreSQL 16 (persistencia)
 - Redis 7 (rate limiting y presencia)
 - MinIO (almacenamiento de archivos adjuntos)
-- Frontend HTML/CSS/JS con Nginx
+- Frontend HTML/CSS/JS con Nginx (chat SPA + admin-panel)
 - Prometheus + Grafana (observabilidad)
 - Dozzle (visor de logs de contenedores en tiempo real)
 - Docker Compose
@@ -33,6 +35,7 @@ flowchart TB
 
   subgraph Edge["Edge / Entrada"]
     FE["frontend<br/>Nginx + SPA<br/>:3000"]
+    AP["admin-panel<br/>Nginx + SPA<br/>:3002"]
     GW["api-gateway<br/>Spring Cloud Gateway<br/>:8090"]
   end
 
@@ -43,6 +46,9 @@ flowchart TB
     USER["user-service<br/>:8083"]
     NOTIF["notification-service<br/>:8084"]
     WORK["worker-service<br/>:8085"]
+    ADMIN["admin-service<br/>:8086"]
+    MOD["moderation-service<br/>:8087"]
+    COMP["compliance-service<br/>:8088"]
   end
 
   CS["config-server<br/>:8888"]
@@ -55,7 +61,9 @@ flowchart TB
   end
 
   Client --> FE
+  Client --> AP
   FE -->|HTTP /api/*| GW
+  AP -->|HTTP /api/*| GW
   FE -.WebSocket STOMP.-> CHAT
   FE -->|/kc/* login| KC
   GW -->|JWT validation| KC
@@ -63,10 +71,16 @@ flowchart TB
   GW --> USER
   GW --> NOTIF
   GW --> WORK
+  GW --> ADMIN
+  GW --> MOD
+  GW --> COMP
 
   CHAT --> PG
   USER --> PG
   NOTIF --> PG
+  ADMIN --> PG
+  MOD --> PG
+  COMP --> PG
   CHAT --> MIN
 
   CHAT -->|publish event| RMQ
@@ -81,6 +95,9 @@ flowchart TB
   USER -.config.-> CS
   NOTIF -.config.-> CS
   WORK -.config.-> CS
+  ADMIN -.config.-> CS
+  MOD -.config.-> CS
+  COMP -.config.-> CS
   GW -.config.-> CS
 ```
 
@@ -127,7 +144,11 @@ sequenceDiagram
 | `user-service` | 8083 | Perfiles de usuario, salas |
 | `notification-service` | 8084 | Notificaciones asíncronas |
 | `worker-service` | 8085 | Consumidor RabbitMQ → relay STOMP/WebSocket, simulación de falla |
-| `frontend` | 3000 | Nginx + SPA |
+| `admin-service` | 8086 | Reglas de negocio por organización (ver [ENTERPRISE.md](ENTERPRISE.md)) |
+| `moderation-service` | 8087 | Filtro de contenido/lenguaje + registro de incidentes |
+| `compliance-service` | 8088 | Auditoría, consentimiento, exportación/borrado GDPR, retención |
+| `frontend` | 3000 | Nginx + SPA (chat) |
+| `admin-panel` | 3002 | Nginx + SPA (administración) |
 | `rabbitmq` | 5672/61613/15672 | Broker de eventos + relay STOMP |
 | `postgres` | 5432 | Bases de datos separadas por servicio |
 | `redis` | 6379 | Rate limiting y presencia |
@@ -210,7 +231,7 @@ ssh user@server 'cd /opt && sudo tar xzf /tmp/progdist.tgz && cd progdist && bas
 4. Arranca el daemon de Docker (systemd, `service` o `dockerd` directo según lo que aplique).
 5. Agrega el usuario actual al grupo `docker`.
 6. Crea el volumen externo `rabbitmq_data`.
-7. Ejecuta `docker compose up -d --build` (compila los 6 servicios Spring y baja todas las imágenes).
+7. Ejecuta `docker compose up -d --build` (compila los 9 servicios Spring y baja todas las imágenes).
 8. Espera a que Keycloak esté listo (~90–120s en el primer arranque).
 9. Imprime las URLs, credenciales y usuarios precargados.
 
@@ -443,6 +464,7 @@ docker compose ps
 | URL | Descripción | Credenciales |
 |---|---|---|
 | http://localhost:3000 | Frontend SPA | (usuarios Keycloak) |
+| http://localhost:3002 | Admin Panel SPA | (usuarios Keycloak con rol admin) |
 | http://localhost:8080 | Keycloak Admin | admin / admin |
 | http://localhost:8090 | API Gateway | — |
 | http://localhost:8888 | Config Server | — |
@@ -458,6 +480,9 @@ docker compose ps
 | http://localhost:8083/docs | User Swagger | — |
 | http://localhost:8084/docs | Notification Swagger | — |
 | http://localhost:8085/docs | Worker Swagger | — |
+| http://localhost:8086/docs | Admin Service Swagger | — |
+| http://localhost:8087/docs | Moderation Service Swagger | — |
+| http://localhost:8088/docs | Compliance Service Swagger | — |
 
 ## CI/CD con GitHub Actions
 
@@ -465,8 +490,8 @@ El repo trae dos workflows en `.github/workflows/`:
 
 | Workflow | Trigger | Qué hace |
 |---|---|---|
-| `ci.yml` | push/PR a `main` | Compila y testea (`mvn -B verify`) los 6 servicios Spring en paralelo (matrix), y valida que `docker-compose.yml` + `docker-compose.prod.yml` sean sintácticamente correctos |
-| `docker-publish.yml` | push a `main` y tags `v*` | Construye las 7 imágenes Docker (6 Spring + frontend) con Buildx y las publica a **GitHub Container Registry** (`ghcr.io/johansan1983/progdist-<servicio>`). Caché de capas vía GHA cache |
+| `ci.yml` | push/PR a `main` | Compila y testea (`mvn -B verify`) los 9 servicios Spring en paralelo (matrix: config-server, api-gateway, chat, user, notification, worker, admin, moderation, compliance) y valida que `docker-compose.yml` + `docker-compose.prod.yml` sean sintácticamente correctos |
+| `docker-publish.yml` | push a `main` y tags `v*` | Construye las 11 imágenes Docker (9 Spring + frontend + admin-panel) con Buildx y las publica a **GitHub Container Registry** (`ghcr.io/johansan1983/progdist-<servicio>`). Caché de capas vía GHA cache |
 
 Las imágenes publicadas quedan accesibles en `https://github.com/johansan1983/progdist/pkgs/container/...` y se pueden tirar directamente sin construir local:
 
@@ -649,8 +674,8 @@ El identificador canónico de usuario en todos los servicios es el claim `sub` d
 
 ## Observabilidad
 
-- **Prometheus** (`:9090`) raspa métricas JVM y de negocio de los 5 servicios Spring via `/actuator/prometheus`.
-- **Grafana** (`:3001`) provee dashboards auto-provisionados (datasource Prometheus + dashboard JVM).
+- **Prometheus** (`:9090`) raspa métricas JVM y de negocio de los 8 servicios Spring (api-gateway, chat, user, notification, worker, admin, moderation, compliance) via `/actuator/prometheus`.
+- **Grafana** (`:3001`) provee dashboards auto-provisionados (datasource Prometheus + dashboard "SuperChat Enterprise").
 - **Dozzle** (`:9999`) permite ver y filtrar logs de todos los contenedores en tiempo real desde el navegador, sin necesidad de acceso a la terminal.
 - **Portainer** (`:9080`) UI web para administrar contenedores: ver estado, reiniciar, ver logs, consola, inspeccionar redes y volúmenes. En el primer acceso pide crear usuario admin.
 - Cada servicio incluye un `CorrelationIdFilter` que propaga el header `X-Request-ID` en todos los logs (también a través de RabbitMQ, ver sección siguiente).
