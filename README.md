@@ -2,6 +2,9 @@
 
 Plataforma de chat corporativo con arquitectura de microservicios para demostración universitaria.
 
+> **▶ Despliegue (Windows / Linux / macOS):** una sola orden — ver **[DEPLOY.md](DEPLOY.md)**.
+> Windows: `.\deploy.ps1` · Linux/macOS: `./deploy.sh`
+
 Documento de arquitectura para presentación:
 
 - docs/ARQUITECTURA_SUPERCHAT.md

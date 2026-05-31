@@ -2,10 +2,13 @@ COMPOSE ?= docker compose
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap up down build rebuild restart ps logs logs-% status clean prune init-volumes wait-keycloak reseed-keycloak health urls render-realm up-prod down-prod
+.PHONY: help deploy bootstrap up down build rebuild restart ps logs logs-% status clean prune init-volumes wait-keycloak reseed-keycloak health urls render-realm up-prod down-prod
 
 help: ## Mostrar esta ayuda
 	@awk 'BEGIN {FS = ":.*##"; printf "\nTargets disponibles:\n"} /^[a-zA-Z_%-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+deploy: ## Despliegue multiplataforma de una orden (genera secretos + realm + volumen + up). Ver DEPLOY.md
+	bash deploy.sh
 
 bootstrap: ## Desde WSL2 / Linux limpia: instala Docker y levanta el stack completo
 	bash scripts/bootstrap.sh

@@ -1,0 +1,13 @@
+# Normalize line endings. Shell scripts MUST be LF or they break on Linux
+# (bash reads `#!/usr/bin/env bash\r` as a literal carriage return).
+* text=auto eol=lf
+*.sh        text eol=lf
+*.ps1       text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# Binary / generated — never touch
+*.jar       binary
+*.png       binary
+*.jpg       binary
+*.gif       binary
