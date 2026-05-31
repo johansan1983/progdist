@@ -29,6 +29,7 @@ class WordListControllerSecurityTest {
 
     @MockBean private ModerationService service;
     @MockBean private JwtDecoder jwtDecoder;
+    @MockBean(name = "orgAccess") private com.superchat.moderation.config.OrgAccess orgAccess;
 
     private final String orgId = UUID.randomUUID().toString();
     private final String base = "/moderation/organizations/" + orgId;
@@ -51,7 +52,8 @@ class WordListControllerSecurityTest {
 
     @Test
     @WithMockUser(roles = "ORG_ADMIN")
-    void org_admin_can_add_word_rule() throws Exception {
+    void org_admin_can_add_word_rule_to_their_own_org() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(true);
         var rule = new com.superchat.moderation.domain.WordList();
         rule.setOrgId(UUID.fromString(orgId));
         rule.setPattern("x");
@@ -65,6 +67,24 @@ class WordListControllerSecurityTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pattern\":\"x\",\"regex\":false,\"severity\":\"HIGH\",\"action\":\"BLOCK\"}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ORG_ADMIN")
+    void org_admin_cannot_add_word_rule_to_another_org() throws Exception {
+        // Cross-tenant IDOR: an ORG_ADMIN of a different org must not edit this org's word list.
+        when(orgAccess.belongsTo(any(), any())).thenReturn(false);
+        mvc.perform(post(base + "/word-lists")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pattern\":\"x\",\"regex\":false,\"severity\":\"HIGH\",\"action\":\"BLOCK\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ORG_ADMIN")
+    void org_admin_cannot_view_incidents_of_another_org() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(false);
+        mvc.perform(get(base + "/incidents")).andExpect(status().isForbidden());
     }
 
     @Test

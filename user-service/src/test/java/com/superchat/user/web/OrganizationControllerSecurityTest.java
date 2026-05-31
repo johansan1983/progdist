@@ -1,5 +1,6 @@
 package com.superchat.user.web;
 
+import com.superchat.user.config.OrgAccess;
 import com.superchat.user.config.SecurityConfig;
 import com.superchat.user.domain.Organization;
 import com.superchat.user.service.OrganizationService;
@@ -37,6 +38,7 @@ class OrganizationControllerSecurityTest {
 
     @MockBean private OrganizationService service;
     @MockBean private JwtDecoder jwtDecoder;
+    @MockBean(name = "orgAccess") private OrgAccess orgAccess;   // SpEL: @orgAccess.belongsTo(...)
 
     private final String orgId = UUID.randomUUID().toString();
 
@@ -83,7 +85,34 @@ class OrganizationControllerSecurityTest {
 
     @Test
     @WithMockUser(roles = "ORG_ADMIN")
-    void org_admin_can_list_org_users() throws Exception {
+    void org_admin_can_list_users_of_their_own_org() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(true);   // caller belongs to this org
+        when(service.listUsersByOrg(any())).thenReturn(List.of());
+        mvc.perform(get("/organizations/" + orgId + "/users")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ORG_ADMIN")
+    void org_admin_cannot_list_users_of_another_org() throws Exception {
+        // The cross-tenant IDOR: an ORG_ADMIN of a DIFFERENT org must be refused.
+        when(orgAccess.belongsTo(any(), any())).thenReturn(false);
+        mvc.perform(get("/organizations/" + orgId + "/users")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ORG_ADMIN")
+    void org_admin_cannot_assign_users_in_another_org() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(false);
+        mvc.perform(put("/organizations/" + orgId + "/users/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"systemRole\":\"ORG_ADMIN\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "PLATFORM_ADMIN")
+    void platform_admin_can_list_any_org_users() throws Exception {
+        // PLATFORM_ADMIN bypasses the per-org membership check.
         when(service.listUsersByOrg(any())).thenReturn(List.of());
         mvc.perform(get("/organizations/" + orgId + "/users")).andExpect(status().isOk());
     }

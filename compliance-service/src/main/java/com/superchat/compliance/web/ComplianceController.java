@@ -57,7 +57,10 @@ public class ComplianceController {
 
     // --- Audit log ---
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    // PLATFORM_ADMIN may search freely (any org, any actor). An ORG_ADMIN is pinned to their
+    // OWN org and may NOT use the actorId filter — otherwise they could read another org's
+    // audit trail or single out arbitrary users (cross-tenant data exposure).
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and #orgId != null and #actorId == null and @orgAccess.belongsTo(authentication, #orgId))")
     @GetMapping("/audit")
     public ResponseEntity<Map<String, Object>> queryAudit(
             @RequestParam(required = false) UUID orgId,

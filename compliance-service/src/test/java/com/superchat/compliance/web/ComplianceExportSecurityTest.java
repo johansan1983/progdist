@@ -36,6 +36,7 @@ class ComplianceExportSecurityTest {
     @MockBean private ComplianceService service;
     @MockBean private DataExportClient exportClient;
     @MockBean private JwtDecoder jwtDecoder;
+    @MockBean(name = "orgAccess") private com.superchat.compliance.config.OrgAccess orgAccess;
 
     private void stubEmptyExport() {
         when(exportClient.fetchProfile(any())).thenReturn(Map.of());
@@ -72,9 +73,44 @@ class ComplianceExportSecurityTest {
 
     @Test
     @WithMockUser(username = "admin", roles = "PLATFORM_ADMIN")
-    void platform_admin_can_read_audit_log() throws Exception {
+    void platform_admin_can_read_audit_log_freely() throws Exception {
         when(service.queryAuditLog(any(), any(), any()))
                 .thenReturn(org.springframework.data.domain.Page.empty());
         mvc.perform(get("/compliance/audit")).andExpect(status().isOk());
+    }
+
+    private static final String ORG = "11111111-1111-1111-1111-111111111111";
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ORG_ADMIN")
+    void org_admin_can_read_audit_log_of_own_org() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(true);
+        when(service.queryAuditLog(any(), any(), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+        mvc.perform(get("/compliance/audit").param("orgId", ORG)).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ORG_ADMIN")
+    void org_admin_cannot_read_audit_log_of_another_org() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(false);
+        mvc.perform(get("/compliance/audit").param("orgId", ORG)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ORG_ADMIN")
+    void org_admin_cannot_filter_audit_by_arbitrary_actor() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(true);   // even for their own org…
+        // …an actorId filter is refused for ORG_ADMIN (could expose a single user's full trail)
+        mvc.perform(get("/compliance/audit").param("orgId", ORG).param("actorId", "victim-sub"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ORG_ADMIN")
+    void org_admin_cannot_read_audit_log_without_org_filter() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(true);
+        // No orgId → would be an unscoped (all-orgs) search → refused for ORG_ADMIN
+        mvc.perform(get("/compliance/audit")).andExpect(status().isForbidden());
     }
 }

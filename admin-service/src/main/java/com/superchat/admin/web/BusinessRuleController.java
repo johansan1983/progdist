@@ -25,7 +25,7 @@ public class BusinessRuleController {
         return ResponseEntity.ok(service.listRules(orgId).stream().map(this::toMap).toList());
     }
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @PutMapping("/{key}")
     public ResponseEntity<Map<String, Object>> upsertRule(@PathVariable UUID orgId,
                                                            @PathVariable String key,
@@ -33,14 +33,14 @@ public class BusinessRuleController {
         return ResponseEntity.ok(toMap(service.upsertRule(orgId, key, req.value())));
     }
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @DeleteMapping("/{key}")
     public ResponseEntity<Void> deleteRule(@PathVariable UUID orgId, @PathVariable String key) {
         service.deleteRule(orgId, key);
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @PostMapping("/seed-defaults")
     public ResponseEntity<List<Map<String, Object>>> seedDefaults(@PathVariable UUID orgId) {
         return ResponseEntity.ok(service.seedDefaults(orgId).stream().map(this::toMap).toList());

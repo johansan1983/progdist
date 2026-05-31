@@ -226,7 +226,7 @@ async function loadOrgs() {
         <td>${badge(o.plan, o.plan === "UNIVERSITY" ? "yellow" : o.plan === "ENTERPRISE" ? "blue" : "gray")}</td>
         <td>${fmtDate(o.createdAt)}</td>
         <td>
-          <button class="btn-ghost" onclick="openDeptPanel('${o.id}','${escHtml(o.name)}')">Departments</button>
+          <button class="btn-ghost" data-action="depts" data-id="${escHtml(o.id)}" data-name="${escHtml(o.name)}">Departments</button>
         </td>
       </tr>`).join("");
   } catch (e) {
@@ -335,7 +335,7 @@ function renderUsersTable(users, orgId) {
       <td><span class="mono">${u.orgId ? escHtml(u.orgId) : "—"}</span></td>
       <td><span class="mono">${u.deptId ? escHtml(u.deptId) : "—"}</span></td>
       <td>
-        ${orgId ? `<button class="btn-ghost" onclick="openAssignModal('${u.id}','${orgId}','${u.systemRole}','${u.deptId||''}')">Assign</button>` : ""}
+        ${orgId ? `<button class="btn-ghost" data-action="assign" data-id="${escHtml(u.id)}" data-org="${escHtml(orgId)}" data-role="${escHtml(u.systemRole)}" data-dept="${escHtml(u.deptId || '')}">Assign</button>` : ""}
       </td>
     </tr>`).join("");
 }
@@ -460,7 +460,7 @@ async function loadWordList() {
         <td>${actionBadge(r.action)}</td>
         <td>${escHtml(r.replacement || "")}</td>
         <td>${fmtDate(r.createdAt)}</td>
-        <td><button class="btn-danger" onclick="deleteWordRule('${orgId}','${r.id}')">Remove</button></td>
+        <td><button class="btn-danger" data-action="del-word" data-org="${escHtml(orgId)}" data-id="${escHtml(r.id)}">Remove</button></td>
       </tr>`).join("");
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="7" class="empty error">${escHtml(e.message)}</td></tr>`;
@@ -576,7 +576,7 @@ async function loadErasureRequests() {
         <td>${fmtDate(e.requestedAt)}</td>
         <td>${fmtDate(e.completedAt)}</td>
         <td>
-          ${e.status !== "COMPLETED" ? `<button class="btn-secondary" onclick="completeErasure('${e.id}')">Mark complete</button>` : ""}
+          ${e.status !== "COMPLETED" ? `<button class="btn-secondary" data-action="complete-erasure" data-id="${escHtml(e.id)}">Mark complete</button>` : ""}
         </td>
       </tr>`).join("");
   } catch (e) {
@@ -643,6 +643,21 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tab === "moderation")    { loadWordList(); loadIncidents(); }
       if (tab === "compliance")    { loadAuditLog(); loadErasureRequests(); }
     });
+  });
+
+  // Delegated table actions — avoids building onclick="" handlers from data
+  // (which is XSS-prone: a malicious org/dept/user name could break out of the
+  // attribute string). Values arrive safely via dataset.
+  document.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-action]");
+    if (!btn) return;
+    const d = btn.dataset;
+    switch (d.action) {
+      case "depts":            openDeptPanel(d.id, d.name); break;
+      case "assign":           openAssignModal(d.id, d.org, d.role, d.dept); break;
+      case "del-word":         deleteWordRule(d.org, d.id); break;
+      case "complete-erasure": completeErasure(d.id); break;
+    }
   });
 
   // Org selector

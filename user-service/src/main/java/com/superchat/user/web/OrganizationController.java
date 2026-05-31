@@ -49,7 +49,7 @@ public class OrganizationController {
 
     // --- Departments ---
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @PostMapping("/{orgId}/departments")
     public ResponseEntity<Map<String, Object>> createDept(@PathVariable UUID orgId,
                                                            @RequestBody CreateDeptRequest req) {
@@ -57,6 +57,7 @@ public class OrganizationController {
         return ResponseEntity.ok(deptToMap(service.createDepartment(orgId, req.name(), parentId)));
     }
 
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @GetMapping("/{orgId}/departments")
     public ResponseEntity<List<Map<String, Object>>> listDepts(@PathVariable UUID orgId,
                                                                 @RequestParam(defaultValue = "false") boolean rootOnly) {
@@ -68,7 +69,7 @@ public class OrganizationController {
 
     // --- User Assignment ---
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @PutMapping("/{orgId}/users/{userId}")
     public ResponseEntity<Map<String, Object>> assignUser(@PathVariable UUID orgId,
                                                            @PathVariable UUID userId,
@@ -79,7 +80,7 @@ public class OrganizationController {
         return ResponseEntity.ok(userToMap(profile));
     }
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @GetMapping("/{orgId}/users")
     public ResponseEntity<List<Map<String, Object>>> listUsers(@PathVariable UUID orgId) {
         return ResponseEntity.ok(service.listUsersByOrg(orgId).stream().map(this::userToMap).toList());

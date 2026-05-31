@@ -27,7 +27,7 @@ public class WordListController {
         return ResponseEntity.ok(service.listRules(orgId).stream().map(this::ruleToMap).toList());
     }
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @PostMapping("/word-lists")
     public ResponseEntity<Map<String, Object>> addRule(@PathVariable UUID orgId,
                                                         @RequestBody AddRuleRequest req) {
@@ -38,14 +38,14 @@ public class WordListController {
         return ResponseEntity.ok(ruleToMap(rule));
     }
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @DeleteMapping("/word-lists/{ruleId}")
     public ResponseEntity<Void> deleteRule(@PathVariable UUID orgId, @PathVariable UUID ruleId) {
         service.deleteRule(orgId, ruleId);
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAnyRole('ORG_ADMIN','PLATFORM_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or (hasRole('ORG_ADMIN') and @orgAccess.belongsTo(authentication, #orgId))")
     @GetMapping("/incidents")
     public ResponseEntity<Map<String, Object>> listIncidents(
             @PathVariable UUID orgId,

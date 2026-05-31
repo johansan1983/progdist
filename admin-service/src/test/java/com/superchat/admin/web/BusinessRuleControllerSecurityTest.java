@@ -1,5 +1,6 @@
 package com.superchat.admin.web;
 
+import com.superchat.admin.config.OrgAccess;
 import com.superchat.admin.config.SecurityConfig;
 import com.superchat.admin.domain.BusinessRule;
 import com.superchat.admin.service.BusinessRuleService;
@@ -39,6 +40,9 @@ class BusinessRuleControllerSecurityTest {
     @MockBean
     private JwtDecoder jwtDecoder;
 
+    @MockBean(name = "orgAccess")
+    private OrgAccess orgAccess;   // SpEL: @orgAccess.belongsTo(authentication, #orgId)
+
     private final String orgId = UUID.randomUUID().toString();
     private final String rulesPath = "/admin/organizations/" + orgId + "/rules";
 
@@ -64,7 +68,8 @@ class BusinessRuleControllerSecurityTest {
 
     @Test
     @WithMockUser(roles = "ORG_ADMIN")
-    void org_admin_can_update_rule() throws Exception {
+    void org_admin_can_update_rule_of_their_own_org() throws Exception {
+        when(orgAccess.belongsTo(any(), any())).thenReturn(true);   // caller belongs to this org
         BusinessRule rule = new BusinessRule();
         rule.setOrgId(UUID.fromString(orgId));
         rule.setRuleKey("dm_enabled");
@@ -79,6 +84,17 @@ class BusinessRuleControllerSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.key").value("dm_enabled"))
                 .andExpect(jsonPath("$.value").value("false"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ORG_ADMIN")
+    void org_admin_cannot_update_rule_of_another_org() throws Exception {
+        // Cross-tenant IDOR: an ORG_ADMIN of a DIFFERENT org must be refused.
+        when(orgAccess.belongsTo(any(), any())).thenReturn(false);
+        mvc.perform(put(rulesPath + "/dm_enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\":\"false\"}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
