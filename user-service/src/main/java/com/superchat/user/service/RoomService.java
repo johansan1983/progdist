@@ -22,17 +22,20 @@ public class RoomService {
     private final UserProfileRepository profileRepository;
     private final OrganizationRepository orgRepository;
     private final DepartmentRepository deptRepository;
+    private final RoomEventPublisher events;
 
     public RoomService(RoomRepository roomRepository,
                        RoomMemberRepository memberRepository,
                        UserProfileRepository profileRepository,
                        OrganizationRepository orgRepository,
-                       DepartmentRepository deptRepository) {
+                       DepartmentRepository deptRepository,
+                       RoomEventPublisher events) {
         this.roomRepository = roomRepository;
         this.memberRepository = memberRepository;
         this.profileRepository = profileRepository;
         this.orgRepository = orgRepository;
         this.deptRepository = deptRepository;
+        this.events = events;
     }
 
     @Transactional
@@ -43,6 +46,7 @@ public class RoomService {
         room.setDescription(description);
         room.setType(type != null ? type : RoomType.PUBLIC);
         room.setChannelType(channelType != null ? channelType : ChannelType.GENERAL);
+        room.setCreatedBy(creatorKeycloakId);
         if (orgId != null) {
             room.setOrganization(orgRepository.findById(orgId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found")));
@@ -62,6 +66,8 @@ public class RoomService {
         owner.setRole(MemberRole.OWNER);
         memberRepository.save(owner);
 
+        events.roomCreated(saved);
+        events.memberAdded(saved.getId(), creator.getId());
         return saved;
     }
 
@@ -91,6 +97,28 @@ public class RoomService {
         member.setId(memberId);
         member.setRoom(room);
         member.setRole(MemberRole.MEMBER);
-        return memberRepository.save(member);
+        RoomMember saved = memberRepository.save(member);
+        events.memberAdded(roomId, userId);
+        return saved;
+    }
+
+    @Transactional
+    public void removeMember(Long roomId, UUID userId) {
+        roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
+        RoomMemberId memberId = new RoomMemberId(roomId, userId);
+        if (!memberRepository.existsById(memberId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member");
+        }
+        memberRepository.deleteById(memberId);
+        events.memberRemoved(roomId, userId);
+    }
+
+    @Transactional
+    public void archiveRoom(Long roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
+        room.setArchived(true);
+        events.roomArchived(room);
     }
 }
