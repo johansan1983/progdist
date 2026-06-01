@@ -106,9 +106,10 @@ public class ChatController {
         String senderName = preferredUsername(authentication);
         log.info("[API] POST /chat/messages sender={} conversationId={}", senderName, request.conversationId());
         conversationAccess.assertCanAccess(request.conversationId(), authentication.getName());
-        ChatMessage saved = chatService.sendMessage(
+        ChatService.SendResult result = chatService.sendMessage(
                 request.conversationId(), request.content(), sender, senderName,
                 request.attachmentUrl(), request.attachmentType(), request.viewOnce(), orgId);
+        ChatMessage saved = result.message();
 
         Map<String, Object> resp = new java.util.HashMap<>();
         resp.put("id", saved.getId());
@@ -121,6 +122,11 @@ public class ChatController {
         resp.put("createdAt", saved.getCreatedAt().toString());
         resp.put("viewOnce", saved.isViewOnce());
         resp.put("status", "persisted_and_published");
+        // Moderation feedback for the sender (PASS is omitted; WARN lets the message through).
+        if (!"PASS".equals(result.moderationVerdict())) {
+            resp.put("moderation", result.moderationVerdict());
+            if (result.moderatedWord() != null) resp.put("moderatedWord", result.moderatedWord());
+        }
         return ResponseEntity.ok(resp);
     }
 

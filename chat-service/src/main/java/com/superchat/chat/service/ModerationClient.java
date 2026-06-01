@@ -32,12 +32,12 @@ public class ModerationClient {
         this.moderationUrl = moderationUrl;
     }
 
-    public record CheckResult(String verdict, String sanitizedContent) {}
+    public record CheckResult(String verdict, String sanitizedContent, String matchedPattern) {}
 
     @CircuitBreaker(name = "moderation", fallbackMethod = "checkFallback")
     public CheckResult check(String orgId, String userId, Long conversationId, String content) {
         if (orgId == null || content == null || content.isBlank()) {
-            return new CheckResult("PASS", content);
+            return new CheckResult("PASS", content, null);
         }
         Map<String, Object> body = Map.of(
                 "orgId", orgId,
@@ -49,16 +49,18 @@ public class ModerationClient {
         ResponseEntity<Map<String, Object>> response = restTemplate.postForEntity(
                 moderationUrl + "/moderation/check", body, (Class<Map<String, Object>>) (Class<?>) Map.class);
         Map<String, Object> resp = response.getBody();
-        if (resp == null) return new CheckResult("PASS", content);
+        if (resp == null) return new CheckResult("PASS", content, null);
         String verdict = (String) resp.getOrDefault("verdict", "PASS");
         String sanitized = (String) resp.getOrDefault("sanitizedContent", content);
-        return new CheckResult(verdict, sanitized);
+        Object matched = resp.get("matchedPattern");
+        String matchedPattern = (matched instanceof String s && !s.isBlank()) ? s : null;
+        return new CheckResult(verdict, sanitized, matchedPattern);
     }
 
     /** Fail-open fallback: when moderation is unavailable or the breaker is open, allow the message. */
     @SuppressWarnings("unused")
     CheckResult checkFallback(String orgId, String userId, Long conversationId, String content, Throwable t) {
         log.warn("Moderation unavailable, failing open: {}", t.toString());
-        return new CheckResult("PASS", content);
+        return new CheckResult("PASS", content, null);
     }
 }

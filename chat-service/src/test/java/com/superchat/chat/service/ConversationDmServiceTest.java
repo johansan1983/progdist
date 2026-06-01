@@ -27,7 +27,7 @@ class ConversationDmServiceTest {
         messageRepository = mock(ChatMessageRepository.class);
         ModerationClient moderationClient = mock(ModerationClient.class);
         when(moderationClient.check(any(), any(), any(), any()))
-                .thenReturn(new ModerationClient.CheckResult("PASS", "content"));
+                .thenReturn(new ModerationClient.CheckResult("PASS", "content", null));
 
         BusinessRuleClient businessRuleClient = mock(BusinessRuleClient.class);
         when(businessRuleClient.getRules(any())).thenReturn(java.util.Map.of());

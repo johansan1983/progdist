@@ -165,7 +165,9 @@ class ModerationServiceTest {
     void warn_passes_content_unchanged_but_records_incident() {
         when(wordListRepo.findByOrgId(orgId)).thenReturn(List.of(warnRule("suspicious")));
         ModerationService.CheckResult result = service.check(orgId, "u1", 1L, "this is suspicious content");
-        assertEquals("PASS", result.verdict());
+        // WARN lets the message through (content unchanged) but signals the sender via the verdict.
+        assertEquals("WARN", result.verdict());
+        assertEquals("suspicious", result.matchedPattern());
         assertEquals("this is suspicious content", result.sanitizedContent());
         verify(incidentRepo).save(argThat(i ->
                 i instanceof ModerationIncident inc &&

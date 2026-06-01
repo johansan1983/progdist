@@ -8,6 +8,12 @@ spring:
     virtual:
       enabled: true
 
+# Include the exception reason in error responses so the frontend can surface
+# moderation/business-rule rejections (e.g. "Message blocked by content policy").
+server:
+  error:
+    include-message: always
+
 chat:
   rabbit:
     stomp:
