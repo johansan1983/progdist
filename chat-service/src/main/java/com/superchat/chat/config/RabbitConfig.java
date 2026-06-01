@@ -43,6 +43,25 @@ public class RabbitConfig {
         return new TopicExchange("audit.exchange", true, false);
     }
 
+    // ── Team channels — consume room/membership events from user-service to maintain
+    //    the local projection (Conversation + ConversationMember). Exchange declaration
+    //    matches user-service's (durable topic) so it is idempotent on either side. ──
+
+    @Bean
+    TopicExchange roomsExchange() {
+        return new TopicExchange("rooms.exchange", true, false);
+    }
+
+    @Bean
+    Queue roomsProjectionQueue() {
+        return new Queue("chat.rooms.projection.queue", true);
+    }
+
+    @Bean
+    Binding roomsProjectionBinding(Queue roomsProjectionQueue, TopicExchange roomsExchange) {
+        return BindingBuilder.bind(roomsProjectionQueue).to(roomsExchange).with("room.#");
+    }
+
     // ── Notifications — declared here so the exchange/queue exist before
     //    notification-service starts (declarations are idempotent in RabbitMQ) ──
 
