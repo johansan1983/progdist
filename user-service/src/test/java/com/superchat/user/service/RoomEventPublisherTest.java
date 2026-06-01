@@ -18,9 +18,9 @@ class RoomEventPublisherTest {
 
     @Test
     void memberAdded_persistsOutboxRowWithRoutingKeyAndPayload() {
-        UUID userId = UUID.randomUUID();
+        String memberKeycloakId = "kc-sub-abc";
 
-        publisher.memberAdded(42L, userId);
+        publisher.memberAdded(42L, memberKeycloakId);
 
         ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
         verify(repo).save(captor.capture());
@@ -28,6 +28,6 @@ class RoomEventPublisherTest {
         assertThat(saved.getExchange()).isEqualTo("rooms.exchange");
         assertThat(saved.getRoutingKey()).isEqualTo("room.member.added");
         assertThat(saved.getAggregateId()).isEqualTo("42");
-        assertThat(saved.getPayload()).contains(userId.toString()).contains("\"roomId\":42");
+        assertThat(saved.getPayload()).contains(memberKeycloakId).contains("\"roomId\":42");
     }
 }

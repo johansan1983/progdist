@@ -25,29 +25,36 @@ class RoomServiceTest {
             new RoomService(roomRepo, memberRepo, profileRepo, orgRepo, deptRepo, events);
 
     @Test
-    void addMember_emitsMemberAddedEvent() {
+    void addMember_emitsMemberAddedEvent_withKeycloakId() {
         Long roomId = 7L;
         UUID userId = UUID.randomUUID();
+        UserProfile profile = new UserProfile();
+        profile.setKeycloakId("kc-sub-abc");
         when(roomRepo.findById(roomId)).thenReturn(Optional.of(new Room()));
         when(memberRepo.existsById(any())).thenReturn(false);
         when(memberRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(profileRepo.findById(userId)).thenReturn(Optional.of(profile));
 
         service.addMember(roomId, userId);
 
-        verify(events).memberAdded(roomId, userId);
+        // chat-service authorizes by Keycloak sub, so the event must carry it (not the profile UUID).
+        verify(events).memberAdded(roomId, "kc-sub-abc");
     }
 
     @Test
-    void removeMember_existing_deletesAndEmitsEvent() {
+    void removeMember_existing_deletesAndEmitsKeycloakId() {
         Long roomId = 7L;
         UUID userId = UUID.randomUUID();
+        UserProfile profile = new UserProfile();
+        profile.setKeycloakId("kc-sub-abc");
         when(roomRepo.findById(roomId)).thenReturn(Optional.of(new Room()));
         when(memberRepo.existsById(any())).thenReturn(true);
+        when(profileRepo.findById(userId)).thenReturn(Optional.of(profile));
 
         service.removeMember(roomId, userId);
 
         verify(memberRepo).deleteById(new RoomMemberId(roomId, userId));
-        verify(events).memberRemoved(roomId, userId);
+        verify(events).memberRemoved(roomId, "kc-sub-abc");
     }
 
     @Test

@@ -32,12 +32,16 @@ public class RoomEventPublisher {
     public void roomUpdated(Room room)  { emit("room.updated", roomPayload(room), room.getId()); }
     public void roomArchived(Room room) { emit("room.archived", roomPayload(room), room.getId()); }
 
-    public void memberAdded(Long roomId, UUID userId) {
-        emit("room.member.added", memberPayload(roomId, userId), roomId);
+    /**
+     * @param memberKeycloakId the member's Keycloak subject (NOT the UserProfile UUID) — chat-service
+     *                         authorizes by the JWT 'sub', so membership must be projected under that id.
+     */
+    public void memberAdded(Long roomId, String memberKeycloakId) {
+        emit("room.member.added", memberPayload(roomId, memberKeycloakId), roomId);
     }
 
-    public void memberRemoved(Long roomId, UUID userId) {
-        emit("room.member.removed", memberPayload(roomId, userId), roomId);
+    public void memberRemoved(Long roomId, String memberKeycloakId) {
+        emit("room.member.removed", memberPayload(roomId, memberKeycloakId), roomId);
     }
 
     private Map<String, Object> roomPayload(Room room) {
@@ -54,10 +58,10 @@ public class RoomEventPublisher {
         return m;
     }
 
-    private Map<String, Object> memberPayload(Long roomId, UUID userId) {
+    private Map<String, Object> memberPayload(Long roomId, String memberKeycloakId) {
         var m = new LinkedHashMap<String, Object>();
         m.put("roomId", roomId);
-        m.put("userId", userId.toString());
+        m.put("userId", memberKeycloakId);
         return m;
     }
 

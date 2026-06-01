@@ -67,8 +67,15 @@ public class RoomService {
         memberRepository.save(owner);
 
         events.roomCreated(saved);
-        events.memberAdded(saved.getId(), creator.getId());
+        events.memberAdded(saved.getId(), creator.getKeycloakId());
         return saved;
+    }
+
+    /** Resolve a UserProfile id to its Keycloak subject for membership events (chat-service keys on the sub). */
+    private String keycloakIdOf(UUID profileId) {
+        return profileRepository.findById(profileId)
+                .map(UserProfile::getKeycloakId)
+                .orElse(profileId.toString());
     }
 
     @Transactional(readOnly = true)
@@ -98,7 +105,7 @@ public class RoomService {
         member.setRoom(room);
         member.setRole(MemberRole.MEMBER);
         RoomMember saved = memberRepository.save(member);
-        events.memberAdded(roomId, userId);
+        events.memberAdded(roomId, keycloakIdOf(userId));
         return saved;
     }
 
@@ -110,8 +117,9 @@ public class RoomService {
         if (!memberRepository.existsById(memberId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member");
         }
+        String memberKeycloakId = keycloakIdOf(userId);
         memberRepository.deleteById(memberId);
-        events.memberRemoved(roomId, userId);
+        events.memberRemoved(roomId, memberKeycloakId);
     }
 
     @Transactional
