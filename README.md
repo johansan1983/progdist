@@ -172,9 +172,52 @@ Flujo principal de mensaje en tiempo real:
 
 ## Despliegue desde cero con un solo comando
 
+SuperChat corre **100% en Docker**, así que se despliega igual en cualquier SO — el host sólo necesita **Docker** (ni Java, ni Maven, ni bases de datos por separado). La guía completa multiplataforma (requisitos de hardware, LAN, HTTPS, troubleshooting) está en **[DEPLOY.md](DEPLOY.md)**.
+
+### Windows (Docker Desktop + PowerShell) — la vía más simple en Windows
+
+**Requisitos:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (al instalarlo habilita el backend WSL2 automáticamente) y [Git para Windows](https://git-scm.com/download/win). No necesitas instalar Java, Maven ni configurar WSL a mano.
+
+```powershell
+# 1. Verificar que Docker está listo (en PowerShell)
+docker version
+docker compose version
+
+# 2. Clonar y entrar al proyecto
+git clone https://github.com/johansan1983/progdist.git
+cd progdist
+
+# 3. Levantar TODO el stack con una sola orden
+.\deploy.ps1
+```
+
+Si PowerShell bloquea el script (*"No se puede cargar el archivo … la ejecución de scripts está deshabilitada en este sistema"*), ejecútalo sin cambiar la política del sistema:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+```
+
+o, alternativamente, habilita tus propios scripts locales **una sola vez** (no requiere administrador) y luego usa `.\deploy.ps1` normal:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+`deploy.ps1` es idempotente y hace todo de punta a punta: verifica que Docker esté corriendo, genera secretos (`AES_ENCRYPTION_KEY`, `INTERNAL_API_TOKEN`) en un `.env` privado **sólo en el primer arranque**, renderiza el realm de Keycloak para tu host, crea el volumen `rabbitmq_data`, compila las imágenes y levanta el stack. El primer build descarga dependencias y tarda varios minutos; Keycloak tarda **~90–120 s** en el primer arranque. Cuando termine, abre <http://localhost:3000>.
+
+Para acceder desde otra máquina de la red local (que Keycloak emita los `redirectUris` con la IP correcta):
+
+```powershell
+.\deploy.ps1 -PublicHost 10.0.0.50
+```
+
+> **Nota WSL2/RAM:** Docker Desktop usa WSL2 por debajo. Si el stack va justo de memoria, crea `%USERPROFILE%\.wslconfig` con `[wsl2]` `memory=10GB` y reinicia con `wsl --shutdown`. Ver detalles en [DEPLOY.md](DEPLOY.md).
+
+### Linux / WSL2 — desde cero sin nada preinstalado
+
 Funciona en una WSL2 (Ubuntu/Debian) o un Linux apt-based recién creado **sin nada instalado** (ni `git`, ni `docker`, ni `make`).
 
-### Opción A — One-liner remoto (estilo Vercel)
+#### Opción A — One-liner remoto (estilo Vercel)
 
 Pega esto en cualquier WSL2 / VM Ubuntu/Debian limpia. No requiere ni siquiera `git` (sólo `curl`):
 
@@ -194,14 +237,14 @@ curl -fsSL https://raw.githubusercontent.com/johansan1983/progdist/main/scripts/
 curl -fsSL https://raw.githubusercontent.com/johansan1983/progdist/main/scripts/install.sh | NO_UP=1 bash
 ```
 
-### Opción B — Con `git` ya instalado
+#### Opción B — Con `git` ya instalado
 
 ```bash
 git clone https://github.com/johansan1983/progdist.git && cd progdist
 make bootstrap
 ```
 
-### Opción C — Tarball sin `git`
+#### Opción C — Tarball sin `git`
 
 ```bash
 curl -fsSL https://github.com/johansan1983/progdist/archive/refs/heads/main.tar.gz | tar -xz
