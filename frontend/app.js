@@ -1022,16 +1022,27 @@ messageForm.addEventListener("submit", async event => {
 
   try {
     sendTypingEvent(false);
-    await api("/api/chat/messages", {
+    const saved = await api("/api/chat/messages", {
       method: "POST",
       body: JSON.stringify({ conversationId: state.activeConversationId ?? state.conversationId, content, attachmentUrl, attachmentType, viewOnce }),
     });
+    // Moderation may rewrite the content server-side (e.g. REPLACE perro->gato). Reconcile the
+    // optimistic bubble against the SAVED content, otherwise the WebSocket echo of the sanitized
+    // text won't match our dedup key and renders as a duplicate.
+    const savedContent = (saved && typeof saved.content === "string") ? saved.content : content;
     state.optimisticMessages.delete(optimisticId);
     const confirmedEl = document.getElementById(`msg-${optimisticId}`);
     if (confirmedEl) {
       confirmedEl.classList.remove("msg-optimistic");
       confirmedEl.dataset.confirmed = "true";
-      confirmedEl.dataset.content = content;
+      confirmedEl.dataset.content = savedContent;
+      // Reflect a moderation rewrite in the sender's own bubble (preserve any badge child).
+      if (savedContent !== content) {
+        const bodyDiv = confirmedEl.children[1];
+        if (bodyDiv && bodyDiv.firstChild && bodyDiv.firstChild.nodeType === Node.TEXT_NODE) {
+          bodyDiv.firstChild.nodeValue = savedContent;
+        }
+      }
       const metaEl = confirmedEl.querySelector(".meta");
       if (metaEl) metaEl.textContent = metaEl.textContent.replace(/\s*\([^)]*\)\s*$/, "");
     }
