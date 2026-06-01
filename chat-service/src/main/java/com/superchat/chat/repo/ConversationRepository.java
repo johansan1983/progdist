@@ -13,6 +13,8 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
 
     Optional<Conversation> findFirstByNameIgnoreCaseOrderByIdAsc(String name);
 
+    Optional<Conversation> findByRoomId(Long roomId);
+
     @Query("""
         SELECT c FROM Conversation c
         WHERE c.type = 'DIRECT'
