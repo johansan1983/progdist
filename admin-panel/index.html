@@ -46,6 +46,7 @@
     <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
     <button class="tab-btn" data-tab="organizations">Organizations</button>
     <button class="tab-btn" data-tab="users">Users</button>
+    <button class="tab-btn" data-tab="channels">Channels</button>
     <button class="tab-btn" data-tab="rules">Business Rules</button>
     <button class="tab-btn" data-tab="moderation">Moderation</button>
     <button class="tab-btn" data-tab="compliance">Compliance</button>
@@ -161,6 +162,45 @@
         <p id="assignError" class="error hidden"></p>
       </div>
     </div>
+  </section>
+
+  <!-- ── CHANNELS ─────────────────────────────────────────────────────── -->
+  <section id="tab-channels" class="tab-content hidden">
+    <div class="section-head">
+      <h2>Channels</h2>
+      <button class="btn-primary" id="newChannelBtn">+ New channel</button>
+    </div>
+    <p class="muted">Channels are admin-managed. Creating one publishes an event that the chat service projects into a conversation.</p>
+    <div id="newChannelForm" class="form-card hidden">
+      <div class="form-row">
+        <label>Name<input id="newChannelName" type="text" placeholder="ingenieria" /></label>
+        <label>Description<input id="newChannelDesc" type="text" placeholder="Equipo de ingeniería" /></label>
+      </div>
+      <div class="form-row">
+        <label>Visibility
+          <select id="newChannelType">
+            <option value="PUBLIC">Public (everyone in org)</option>
+            <option value="PRIVATE">Private (invited members)</option>
+          </select>
+        </label>
+        <label>Kind
+          <select id="newChannelKind">
+            <option value="GENERAL">General</option>
+            <option value="TEAM">Team</option>
+            <option value="ANNOUNCEMENT">Announcement</option>
+            <option value="CLASS">Class</option>
+            <option value="SUPPORT">Support</option>
+          </select>
+        </label>
+      </div>
+      <button class="btn-primary" id="createChannelBtn">Create</button>
+      <button class="btn-ghost" id="cancelChannelBtn">Cancel</button>
+      <p id="channelFormError" class="error hidden"></p>
+    </div>
+    <table class="data-table" id="channelTable">
+      <thead><tr><th>Name</th><th>Visibility</th><th>Kind</th><th>Created</th></tr></thead>
+      <tbody id="channelTableBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+    </table>
   </section>
 
   <!-- ── BUSINESS RULES ───────────────────────────────────────────────── -->

@@ -6,6 +6,7 @@ import java.util.Map;
 import com.superchat.chat.domain.ChatMessage;
 import com.superchat.chat.domain.Conversation;
 import com.superchat.chat.service.ChatService;
+import com.superchat.chat.service.ConversationAccessService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,9 +31,11 @@ public class ChatController {
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
     private final ChatService chatService;
+    private final ConversationAccessService conversationAccess;
 
-    public ChatController(ChatService chatService) {
+    public ChatController(ChatService chatService, ConversationAccessService conversationAccess) {
         this.chatService = chatService;
+        this.conversationAccess = conversationAccess;
     }
 
     @GetMapping("/ping")
@@ -102,10 +105,11 @@ public class ChatController {
         String sender = authentication.getName();
         String senderName = preferredUsername(authentication);
         log.info("[API] POST /chat/messages sender={} conversationId={}", senderName, request.conversationId());
-        chatService.assertDmAccess(request.conversationId(), authentication.getName());
-        ChatMessage saved = chatService.sendMessage(
+        conversationAccess.assertCanAccess(request.conversationId(), authentication.getName());
+        ChatService.SendResult result = chatService.sendMessage(
                 request.conversationId(), request.content(), sender, senderName,
                 request.attachmentUrl(), request.attachmentType(), request.viewOnce(), orgId);
+        ChatMessage saved = result.message();
 
         Map<String, Object> resp = new java.util.HashMap<>();
         resp.put("id", saved.getId());
@@ -118,6 +122,11 @@ public class ChatController {
         resp.put("createdAt", saved.getCreatedAt().toString());
         resp.put("viewOnce", saved.isViewOnce());
         resp.put("status", "persisted_and_published");
+        // Moderation feedback for the sender (PASS is omitted; WARN lets the message through).
+        if (!"PASS".equals(result.moderationVerdict())) {
+            resp.put("moderation", result.moderationVerdict());
+            if (result.moderatedWord() != null) resp.put("moderatedWord", result.moderatedWord());
+        }
         return ResponseEntity.ok(resp);
     }
 
@@ -128,7 +137,7 @@ public class ChatController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "50") int size
     ) {
-        chatService.assertDmAccess(conversationId, authentication.getName());
+        conversationAccess.assertCanAccess(conversationId, authentication.getName());
         String currentUserId = authentication.getName();
         List<Map<String, Object>> messages = chatService.listMessages(conversationId, page, size, currentUserId);
 

@@ -70,7 +70,10 @@ public class ChatService {
      * (message row + outbox event rows) is delegated to MessagePersistenceService; an OutboxRelay
      * then publishes the events to RabbitMQ with at-least-once delivery.
      */
-    public ChatMessage sendMessage(Long conversationId, String content, String sender, String senderName,
+    /** Outcome of a send, carrying the moderation verdict so the API can warn the sender. */
+    public record SendResult(ChatMessage message, String moderationVerdict, String moderatedWord) {}
+
+    public SendResult sendMessage(Long conversationId, String content, String sender, String senderName,
             String attachmentUrl, String attachmentType, boolean viewOnce, String orgId) {
         if (conversationId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "conversationId is required");
@@ -102,13 +105,17 @@ public class ChatService {
         }
 
         String finalContent = content;
+        String verdict = "PASS";
+        String moderatedWord = null;
         if (content != null && !content.isBlank()) {
             ModerationClient.CheckResult moderation = moderationClient.check(orgId, sender, conversationId, content);
             if ("BLOCK".equals(moderation.verdict())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Message blocked by content policy");
             }
+            verdict = moderation.verdict();
             finalContent = moderation.sanitizedContent();
+            moderatedWord = moderation.matchedPattern();
         }
 
         // Atomic write: message row + outbox events commit together (no remote IO inside the tx).
@@ -118,7 +125,7 @@ public class ChatService {
         auditPublisher.publish("MESSAGE_SENT", sender, String.valueOf(saved.getId()), orgId,
                 Map.of("conversationId", conversationId, "senderName", senderName != null ? senderName : sender));
 
-        return saved;
+        return new SendResult(saved, verdict, moderatedWord);
     }
 
     @Transactional

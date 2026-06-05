@@ -42,6 +42,7 @@ public class ModerationService {
 
         List<WordList> rules = getCachedRules(orgId);
         String workingContent = content;
+        String warnedPattern = null;
 
         for (WordList rule : rules) {
             Pattern pattern = compile(rule);
@@ -55,10 +56,13 @@ public class ModerationService {
                     String repl = rule.getReplacement() != null ? rule.getReplacement() : "***";
                     workingContent = pattern.matcher(workingContent).replaceAll(repl);
                 }
-                case WARN -> { /* content passes, incident already recorded */ }
+                case WARN -> { warnedPattern = rule.getPattern(); /* content passes, but flag it */ }
             }
         }
-        return CheckResult.pass(workingContent);
+        // A WARN match lets the message through but signals the sender; PASS is silent.
+        return warnedPattern != null
+                ? CheckResult.warn(workingContent, warnedPattern)
+                : CheckResult.pass(workingContent);
     }
 
     // --- Word list management ---
@@ -139,5 +143,6 @@ public class ModerationService {
     public record CheckResult(String verdict, String sanitizedContent, String matchedPattern) {
         static CheckResult pass(String content) { return new CheckResult("PASS", content, null); }
         static CheckResult block(String pattern) { return new CheckResult("BLOCK", null, pattern); }
+        static CheckResult warn(String content, String pattern) { return new CheckResult("WARN", content, pattern); }
     }
 }

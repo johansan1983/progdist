@@ -42,6 +42,24 @@ public class Conversation {
     @Column(name = "channel_type", nullable = false, length = 20)
     private String channelType = "GENERAL";
 
+    @Column(name = "room_id")
+    private Long roomId;
+
+    @Column(name = "org_id", length = 36)
+    private String orgId;
+
+    @Column(name = "dept_id", length = 36)
+    private String deptId;
+
+    @Column(length = 20)
+    private String visibility;
+
+    @Column(name = "created_by", length = 64)
+    private String createdBy;
+
+    @Column(nullable = false)
+    private boolean archived = false;
+
     @PrePersist
     void onCreate() { this.createdAt = Instant.now(); }
 
@@ -62,4 +80,16 @@ public class Conversation {
     public void setDmParticipantBName(String dmParticipantBName) { this.dmParticipantBName = dmParticipantBName; }
     public String getChannelType() { return channelType; }
     public void setChannelType(String channelType) { this.channelType = channelType; }
+    public Long getRoomId() { return roomId; }
+    public void setRoomId(Long roomId) { this.roomId = roomId; }
+    public String getOrgId() { return orgId; }
+    public void setOrgId(String orgId) { this.orgId = orgId; }
+    public String getDeptId() { return deptId; }
+    public void setDeptId(String deptId) { this.deptId = deptId; }
+    public String getVisibility() { return visibility; }
+    public void setVisibility(String visibility) { this.visibility = visibility; }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public boolean isArchived() { return archived; }
+    public void setArchived(boolean archived) { this.archived = archived; }
 }

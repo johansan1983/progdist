@@ -250,6 +250,46 @@ async function createOrg() {
   } catch (e) { setError("orgFormError", e.message); }
 }
 
+// ── Channels ──────────────────────────────────────────────────────────────
+// NOTE: GET /rooms currently lists PUBLIC channels only (user-service
+// listPublicRooms). Private channels are created but an admin-wide listing
+// endpoint is a follow-up.
+async function loadChannels() {
+  const tbody = $("channelTableBody");
+  tbody.innerHTML = `<tr><td colspan="4" class="empty">Loading…</td></tr>`;
+  try {
+    const rooms = await api("/rooms");
+    tbody.innerHTML = rooms.length
+      ? rooms.map(r => `
+          <tr>
+            <td>${escHtml(r.name)}</td>
+            <td>${badge(r.type, r.type === "PRIVATE" ? "blue" : "gray")}</td>
+            <td>${escHtml(r.channelType)}</td>
+            <td>${fmtDate(r.createdAt)}</td>
+          </tr>`).join("")
+      : `<tr><td colspan="4" class="empty">No public channels yet.</td></tr>`;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty error">${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function createChannel() {
+  const name        = $("newChannelName").value.trim();
+  const description = $("newChannelDesc").value.trim();
+  const type        = $("newChannelType").value;     // PUBLIC | PRIVATE
+  const channelType = $("newChannelKind").value;
+  setError("channelFormError", "");
+  if (!name) { setError("channelFormError", "Name is required."); return; }
+  try {
+    await api("/users/me");  // ensure the admin's profile exists — createRoom requires it
+    await api("/rooms", { method: "POST", body: { name, description, type, channelType } });
+    hide("newChannelForm");
+    $("newChannelName").value = "";
+    $("newChannelDesc").value = "";
+    await loadChannels();
+  } catch (e) { setError("channelFormError", e.message); }
+}
+
 // ── Departments ───────────────────────────────────────────────────────────
 async function loadDepts(orgId) {
   try {
@@ -639,6 +679,7 @@ document.addEventListener("DOMContentLoaded", () => {
       switchTab(tab);
       if (tab === "organizations") loadOrgs();
       if (tab === "users")         loadOrgUsers();
+      if (tab === "channels")      loadChannels();
       if (tab === "rules")         loadRules();
       if (tab === "moderation")    { loadWordList(); loadIncidents(); }
       if (tab === "compliance")    { loadAuditLog(); loadErasureRequests(); }
@@ -667,6 +708,11 @@ document.addEventListener("DOMContentLoaded", () => {
   $("newOrgBtn").addEventListener("click", () => { show("newOrgForm"); });
   $("cancelOrgBtn").addEventListener("click", () => { hide("newOrgForm"); setError("orgFormError", ""); });
   $("createOrgBtn").addEventListener("click", createOrg);
+
+  // ── Channels ──
+  $("newChannelBtn").addEventListener("click", () => { show("newChannelForm"); });
+  $("cancelChannelBtn").addEventListener("click", () => { hide("newChannelForm"); setError("channelFormError", ""); });
+  $("createChannelBtn").addEventListener("click", createChannel);
 
   // Auto-fill slug from name
   $("newOrgName").addEventListener("input", () => {

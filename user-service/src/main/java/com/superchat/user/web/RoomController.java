@@ -3,6 +3,7 @@ package com.superchat.user.web;
 import com.superchat.user.domain.*;
 import com.superchat.user.service.RoomService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +21,7 @@ public class RoomController {
         this.service = service;
     }
 
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORG_ADMIN','DEPT_ADMIN')")
     @PostMapping
     public ResponseEntity<Map<String, Object>> createRoom(
             Authentication authentication,
@@ -43,6 +45,7 @@ public class RoomController {
         return ResponseEntity.ok(service.listMembers(id).stream().map(this::memberToMap).toList());
     }
 
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORG_ADMIN','DEPT_ADMIN')")
     @PostMapping("/{id}/members")
     public ResponseEntity<Map<String, Object>> addMember(
             @PathVariable Long id,
@@ -50,6 +53,20 @@ public class RoomController {
     ) {
         RoomMember member = service.addMember(id, UUID.fromString(request.userId()));
         return ResponseEntity.ok(memberToMap(member));
+    }
+
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORG_ADMIN','DEPT_ADMIN')")
+    @DeleteMapping("/{id}/members/{userId}")
+    public ResponseEntity<Void> removeMember(@PathVariable Long id, @PathVariable UUID userId) {
+        service.removeMember(id, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','ORG_ADMIN','DEPT_ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> archiveRoom(@PathVariable Long id) {
+        service.archiveRoom(id);
+        return ResponseEntity.noContent().build();
     }
 
     private Map<String, Object> toMap(Room r) {

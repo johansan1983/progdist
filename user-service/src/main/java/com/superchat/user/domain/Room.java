@@ -33,6 +33,12 @@ public class Room {
     @Column(name = "channel_type", nullable = false, length = 20)
     private ChannelType channelType = ChannelType.GENERAL;
 
+    @Column(name = "created_by", length = 255)
+    private String createdBy;
+
+    @Column(nullable = false)
+    private boolean archived = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -54,5 +60,9 @@ public class Room {
     public void setDepartment(Department department) { this.department = department; }
     public ChannelType getChannelType() { return channelType; }
     public void setChannelType(ChannelType channelType) { this.channelType = channelType; }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public boolean isArchived() { return archived; }
+    public void setArchived(boolean archived) { this.archived = archived; }
     public Instant getCreatedAt() { return createdAt; }
 }
