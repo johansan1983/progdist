@@ -4,7 +4,7 @@ Operations and architecture reference for the corporate chat platform. Covers th
 multi-tenant organization model, RBAC, business-rule enforcement, content moderation,
 message encryption, GDPR compliance, and observability.
 
-> For local setup and the base architecture, see [CLAUDE.md](CLAUDE.md). This document
+> For local setup and the base architecture, see [README.md](README.md). This document
 > describes the enterprise layer built on top of it.
 
 ---

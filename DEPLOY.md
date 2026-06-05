@@ -184,4 +184,4 @@ DNS for the domain must resolve to the host before Caddy can issue the certifica
 | A Java service is `unhealthy` | Low RAM. Close other apps or raise the host's memory; each service is capped at 1 GB. |
 | Build fails “insufficient memory” | The host ran out of RAM/paging during the image build — free memory and retry. |
 
-Everything else is documented in [CLAUDE.md](CLAUDE.md) (architecture) and [ENTERPRISE.md](ENTERPRISE.md) (multi-tenant, RBAC, compliance, operations runbook).
+Everything else is documented in the [README.md](README.md) (architecture) and [ENTERPRISE.md](ENTERPRISE.md) (multi-tenant, RBAC, compliance, operations runbook).

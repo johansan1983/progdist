@@ -25,9 +25,7 @@ Thumbs.db
 .env
 *.env.local
 
-# Claude / AI planning artifacts (kept local, not committed)
-CLAUDE.md
-.claude/
+# Local-only design/planning notes (kept local, not committed)
 docs/superpowers/
 
 # Build / submission documents (kept local, not committed)
