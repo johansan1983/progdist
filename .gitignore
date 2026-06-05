@@ -24,3 +24,15 @@ Thumbs.db
 # Environment / secrets
 .env
 *.env.local
+
+# Claude / AI planning artifacts (kept local, not committed)
+CLAUDE.md
+.claude/
+docs/superpowers/
+
+# Build / submission documents (kept local, not committed)
+*.pdf
+*.xlsx
+*.pptx
+*.docx
+~$*
